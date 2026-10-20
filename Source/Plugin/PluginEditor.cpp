@@ -7,7 +7,7 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     emblem = juce::ImageCache::getFromMemory(BinaryData::emblem_png, BinaryData::emblem_pngSize);
     addAndMakeVisible(content);
     for (auto* button : {&snap, &flats, &bypass}) { button->setClickingTogglesState(true); content.addAndMakeVisible(button); }
-    snap.setTooltip("Snap every band to the nearest chromatic note (A4 = 440 Hz), including host automation");
+    snap.setTooltip("Snap every band to the nearest chromatic note of the A4 reference, including host automation");
     flats.setTooltip("Display flats instead of sharps; pitch is unchanged");
     bypass.setTooltip("Bypass the whole EQ, including output gain");
     bypass.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffdd8e83));
@@ -17,7 +17,10 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     flatsAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "flats", flats);
     bypassAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "bypass", bypass);
     outputAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "output", output);
-    for (juce::Component* c : std::initializer_list<juce::Component*>{&graph, &piano, &output, &selectedLabel, &rangeLabel, &octaveDown, &octaveUp}) content.addAndMakeVisible(c);
+    reference.setSliderStyle(juce::Slider::LinearHorizontal); reference.setTextBoxStyle(juce::Slider::TextBoxRight, false, 66, 22);
+    reference.setTextValueSuffix(" Hz"); reference.setTooltip("Tuning reference: the frequency of A4. Notes, snapping and cents follow it.");
+    referenceAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "a4", reference);
+    for (juce::Component* c : std::initializer_list<juce::Component*>{&graph, &piano, &output, &reference, &selectedLabel, &rangeLabel, &octaveDown, &octaveUp}) content.addAndMakeVisible(c);
     selectedLabel.setFont(ui::font(16, true)); selectedLabel.setColour(juce::Label::textColourId, ui::ink);
     rangeLabel.setFont(ui::font(12)); rangeLabel.setColour(juce::Label::textColourId, ui::muted);
     for (int i = 0; i < 5; ++i) {
@@ -27,8 +30,8 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     }
     graph.onSelect = [this](int band) { select(band); };
     piano.onNote = [this](int midi) { panels[static_cast<size_t>(selected)]->chooseNote(midi); };
-    octaveDown.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected)) - 12); };
-    octaveUp.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected)) + 12); };
+    octaveDown.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) - 12); };
+    octaveUp.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) + 12); };
     setResizable(true, true); setResizeLimits(928, 672, 1740, 1260);
     if (auto* constrainer = getConstrainer()) constrainer->setFixedAspectRatio(1160.0 / 840.0);
     setSize(1160, 840);
@@ -43,12 +46,12 @@ void TunerEditor::select(int band) {
 void TunerEditor::timerCallback() {
     for (auto& panel : panels) panel->refresh();
     graph.repaint(); piano.repaint();
-    const auto hz = processor.bandFrequency(selected); const auto midi = ote::nearestNote(hz);
+    const auto hz = processor.bandFrequency(selected); const auto midi = ote::nearestNote(hz, processor.referencePitch());
     selectedLabel.setText("Band " + juce::String(selected + 1) + "  /  " + juce::String(ote::noteName(midi, processor.usesFlats())), juce::dontSendNotification);
     selectedLabel.setColour(juce::Label::textColourId, ui::bandColours[static_cast<size_t>(selected)]);
     rangeLabel.setText(ui::frequencyText(hz), juce::dontSendNotification);
-    octaveDown.setEnabled(ote::noteFrequency(midi - 12) >= 20);
-    octaveUp.setEnabled(ote::noteFrequency(midi + 12) <= std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49));
+    octaveDown.setEnabled(ote::noteFrequency(midi - 12, processor.referencePitch()) >= 20);
+    octaveUp.setEnabled(ote::noteFrequency(midi + 12, processor.referencePitch()) <= std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49));
     meter = std::max(processor.peak.load(), meter * 0.88f);
     repaint();
 }
@@ -61,6 +64,7 @@ void TunerEditor::resized() {
     selectedLabel.setBounds(25, 737, 205, 25); rangeLabel.setBounds(25, 763, 205, 21);
     octaveDown.setBounds(25, 791, 72, 24); octaveUp.setBounds(105, 791, 72, 24);
     piano.setBounds(240, 739, 896, 74);
+    reference.setBounds(966, 705, 170, 26);
 }
 void TunerEditor::paint(juce::Graphics& g) {
     g.fillAll(ui::background);
@@ -78,5 +82,6 @@ void TunerEditor::paint(juce::Graphics& g) {
     ui::text(g, "Play the frequency.", {26, 705, 200, 24}, 15, ui::ink, juce::Justification::centredLeft, true);
     ui::text(g, "Choose a key for the selected band. The keyboard follows its octave.", {240, 709, 850, 20}, 12, ui::muted);
     ui::text(g, "Alan Marcero", {25, 820, 220, 15}, 10, ui::muted);
-    ui::text(g, "A4 = 440 Hz   /   12-tone equal temperament   /   v1.0.0", {660, 820, 476, 15}, 10, ui::muted, juce::Justification::centredRight);
+    ui::text(g, "A4", {934, 709, 28, 20}, 12, ui::muted, juce::Justification::centredRight);
+    ui::text(g, "12-tone equal temperament   /   v1.0.0", {660, 820, 476, 15}, 10, ui::muted, juce::Justification::centredRight);
 }

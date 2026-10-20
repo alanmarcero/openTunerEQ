@@ -1,10 +1,12 @@
 #pragma once
 #include "Filters.h"
+#include "Notes.h"
 #include <array>
 namespace ote {
 struct Settings {
     std::array<BandSettings, 5> bands {};
     bool snap = true;
+    double a4 = standardPitch;
     bool bypass = false;
     double outputDb = 0;
 };

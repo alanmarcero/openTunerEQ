@@ -83,7 +83,7 @@ Coefficients makeSection(Shape shape, double hz, double gainDb, double q, double
 }
 FilterDesign designFilter(const BandSettings& settings, double rate) noexcept {
     rate = std::max(100.0, rate);
-    const auto hz = effectiveFrequency(settings.frequency, false, rate);
+    const auto hz = effectiveFrequency(settings.frequency, false, rate, standardPitch);
     const auto gain = std::clamp(settings.gainDb, -24.0, 24.0);
     const auto q = std::clamp(settings.q, 0.1, 18.0);
     FilterDesign result;

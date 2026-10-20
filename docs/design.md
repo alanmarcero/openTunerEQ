@@ -6,7 +6,7 @@ A five-band parametric EQ for placing filters at musical notes. User delegated i
 
 Five independently enabled bands with frequency (20–20,000 Hz), gain (±24 dB), Q (0.1–18), and Bell, Low shelf, High shelf, High pass, Low pass, Notch, Band pass shapes. HP/LP slopes: 12, 24, 48, 96 dB/oct. These are finite minimum-phase slopes, not an ideal brick wall. Shelf gain provides finite low/high attenuation in dB. Gain is inactive for cut/notch/band-pass shapes; Q affects bell/notch/band-pass and the resonance of 12 dB/oct cuts; higher-order cuts use a Butterworth alignment and Q is inactive. Shelf Q is fixed for monotonic shelves.
 
-Each band displays effective frequency and chromatic note with octave. Global Snap defaults on; DSP and UI both honor it, including host automation. A4 = 440 Hz, 12-tone equal temperament. Sharp/flat display is switchable. Direct pitch-class and octave selectors plus semitone step buttons and a clickable piano strip select notes. Free mode displays nearest note and cents. Out-of-range notes are disabled. Frequencies are bounded below Nyquist at every sample rate.
+Each band displays effective frequency and chromatic note with octave. Global Snap defaults on; DSP and UI both honor it, including host automation. 12-tone equal temperament from an automatable A4 reference (400–480 Hz, default 440 Hz). Sharp/flat display is switchable. Direct pitch-class and octave selectors plus semitone step buttons and a clickable piano strip select notes. Free mode displays nearest note and cents. Out-of-range notes are disabled. Frequencies are bounded below Nyquist at every sample rate.
 
 ## Architecture
 

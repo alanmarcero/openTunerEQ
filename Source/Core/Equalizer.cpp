@@ -18,7 +18,7 @@ double estimateTailSeconds(const Settings& settings, double sampleRate) noexcept
     int sections = 0;
     for (auto band : settings.bands) {
         if (!band.enabled || (usesGain(band.shape) && std::abs(band.gainDb) < 0.001)) continue;
-        band.frequency = effectiveFrequency(band.frequency, settings.snap, sampleRate);
+        band.frequency = effectiveFrequency(band.frequency, settings.snap, sampleRate, settings.a4);
         const auto design = designFilter(band, sampleRate);
         sections += design.count;
         if (usesGain(band.shape)) boost += std::max(0.0, band.gainDb);
@@ -68,7 +68,7 @@ void Equalizer::setSettings(const Settings& settings, bool immediately) noexcept
     for (size_t i = 0; i < bands.size(); ++i) {
         auto& band = bands[i];
         band.target = settings.bands[i];
-        band.target.frequency = effectiveFrequency(band.target.frequency, settings.snap, rate);
+        band.target.frequency = effectiveFrequency(band.target.frequency, settings.snap, rate, settings.a4);
         if (immediately) {
             band.active = 0; band.remaining = 0; band.wet = band.target.enabled ? 1 : 0;
             for (auto& bank : band.banks) {

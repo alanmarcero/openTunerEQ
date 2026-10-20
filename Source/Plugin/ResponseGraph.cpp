@@ -57,7 +57,7 @@ void ResponseGraph::paint(juce::Graphics& g) {
             g.setColour(color.withAlpha(0.13f)); g.drawLine(pt.x, p.getY(), pt.x, p.getBottom(), 1);
             g.fillEllipse(pt.x - 16, pt.y - 16, 32, 32);
             const auto hz = processor.bandFrequency(i);
-            const auto caption = juce::String(ote::noteName(ote::nearestNote(hz), processor.usesFlats())) + "  " + juce::String(hz, 1) + " Hz";
+            const auto caption = juce::String(ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats())) + "  " + juce::String(hz, 1) + " Hz";
             auto label = juce::Rectangle<float>(132, 21).withCentre({juce::jlimit(p.getX() + 66, p.getRight() - 66, pt.x), std::max(p.getY() + 10, pt.y - 27)});
             g.setColour(ui::background); g.fillRoundedRectangle(label, 4);
             ui::text(g, caption, label, 11, color, juce::Justification::centred, true);
@@ -84,7 +84,7 @@ void ResponseGraph::mouseDrag(const juce::MouseEvent& e) {
     if (dragging < 0) return;
     auto p = plot();
     auto hz = 20 * std::pow(1000.0, juce::jlimit(0.0f, 1.0f, (e.position.x - p.getX()) / p.getWidth()));
-    hz = ote::effectiveFrequency(hz, processor.readSettings().snap, processor.displaySampleRate());
+    hz = ote::effectiveFrequency(hz, processor.readSettings().snap, processor.displaySampleRate(), processor.referencePitch());
     auto* parameter = processor.state.getParameter(params::bandId(dragging, "freq"));
     parameter->setValueNotifyingHost(parameter->convertTo0to1(static_cast<float>(hz)));
     if (gainGesture) {
@@ -113,7 +113,7 @@ void ResponseGraph::mouseWheelMove(const juce::MouseEvent&, const juce::MouseWhe
 namespace {
 bool blackKey(int midi) { const auto p = midi % 12; return p == 1 || p == 3 || p == 6 || p == 8 || p == 10; }
 }
-int PianoStrip::firstNote() const { return juce::jlimit(12, 120, (ote::nearestNote(processor.bandFrequency(selected)) / 12 - 1) * 12); }
+int PianoStrip::firstNote() const { return juce::jlimit(12, 120, (ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) / 12 - 1) * 12); }
 juce::Rectangle<float> PianoStrip::keyBounds(int offset) const {
     int whites = 0;
     for (int i = 0; i < offset; ++i) if (!blackKey(i)) ++whites;
@@ -122,12 +122,12 @@ juce::Rectangle<float> PianoStrip::keyBounds(int offset) const {
     return {width * whites + 1, 0, width - 2, static_cast<float>(getHeight())};
 }
 void PianoStrip::paint(juce::Graphics& g) {
-    const auto first = firstNote(); const auto current = ote::nearestNote(processor.bandFrequency(selected));
+    const auto first = firstNote(); const auto current = ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch());
     const auto colour = ui::bandColours[static_cast<size_t>(selected)];
     for (bool black : {false, true}) for (int i = 0; i < 24; ++i) {
         if (blackKey(i) != black) continue;
         auto rect = keyBounds(i);
-        const int midi = first + i; const auto hz = ote::noteFrequency(midi);
+        const int midi = first + i; const auto hz = ote::noteFrequency(midi, processor.referencePitch());
         const bool valid = hz >= 20 && hz <= std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49);
         g.setColour(midi == current ? colour : black ? juce::Colour(0xff11191f) : juce::Colour(0xffb9bdbb));
         if (!valid) g.setColour(black ? juce::Colour(0xff0f151a) : juce::Colour(0xff454c50));
@@ -140,7 +140,7 @@ void PianoStrip::paint(juce::Graphics& g) {
 void PianoStrip::mouseDown(const juce::MouseEvent& e) {
     for (bool black : {true, false}) for (int i = 0; i < 24; ++i) {
         if (blackKey(i) != black || !keyBounds(i).contains(e.position)) continue;
-        const auto midi = firstNote() + i; const auto hz = ote::noteFrequency(midi);
+        const auto midi = firstNote() + i; const auto hz = ote::noteFrequency(midi, processor.referencePitch());
         if (hz >= 20 && hz <= std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49) && onNote) onNote(midi);
         return;
     }

@@ -23,16 +23,19 @@ void near(double actual, double expected, double tolerance, const char* message)
 }
 int main() {
     using namespace ote;
-    near(noteFrequency(69), 440.0, 1e-9, "A4 tuning");
-    near(noteFrequency(60), 261.625565, 1e-5, "C4 tuning");
-    near(snapFrequency(448), 440, 1e-9, "nearest semitone");
-    near(snapFrequency(20), 20.601722, 1e-5, "lowest in-range note");
-    near(snapFrequency(20000), 19912.126958, 1e-5, "highest in-range note");
+    near(noteFrequency(69, standardPitch), 440.0, 1e-9, "A4 tuning");
+    near(noteFrequency(60, standardPitch), 261.625565, 1e-5, "C4 tuning");
+    near(snapFrequency(448, standardPitch), 440, 1e-9, "nearest semitone");
+    near(snapFrequency(20, standardPitch), 20.601722, 1e-5, "lowest in-range note");
+    near(snapFrequency(20000, standardPitch), 19912.126958, 1e-5, "highest in-range note");
     check(noteName(61, false) == "C#4" && noteName(61, true) == "Db4", "enharmonic spelling");
-    near(centsFromNote(445, 69), 19.5621748, 1e-5, "free frequency cents");
-    check(std::isfinite(snapFrequency(std::numeric_limits<double>::quiet_NaN())), "invalid frequency sanitized");
-    check(effectiveFrequency(20000, true, 32000) < 16000, "Nyquist bound");
-    near(effectiveFrequency(445, false, 48000), 445, 1e-9, "free frequency preserved");
+    near(centsFromNote(445, 69, standardPitch), 19.5621748, 1e-5, "free frequency cents");
+    check(std::isfinite(snapFrequency(std::numeric_limits<double>::quiet_NaN(), standardPitch)), "invalid frequency sanitized");
+    check(effectiveFrequency(20000, true, 32000, standardPitch) < 16000, "Nyquist bound");
+    near(effectiveFrequency(445, false, 48000, standardPitch), 445, 1e-9, "free frequency preserved");
+    near(noteFrequency(60, 432), 256.868737, 1e-5, "C4 at A4 = 432 Hz");
+    near(snapFrequency(440, 432), 432, 1e-9, "snapping follows the reference");
+    near(centsFromNote(440, 69, 432), 31.7667, 1e-3, "cents follow the reference");
     BandSettings s;
     s.frequency = 1000; s.q = 0.7071067811865476;
     s.shape = Shape::Bell; s.gainDb = 12;
