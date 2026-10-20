@@ -11,46 +11,73 @@ bool usesQ(const BandSettings& s) noexcept {
     return s.shape == Shape::Bell || s.shape == Shape::Notch || s.shape == Shape::BandPass || (isCut(s.shape) && s.slope == 12);
 }
 namespace {
-Coefficients makeSection(Shape shape, double hz, double gainDb, double q, double rate) noexcept {
-    const auto w = 2.0 * std::numbers::pi * hz / rate;
-    const auto c = std::cos(w), s = std::sin(w), alpha = s / (2.0 * q);
+// Vicanek, "Matched Second Order Digital Filters" (2016). The poles come from impulse invariance and the
+// numerator makes the magnitude equal the analog prototype at DC, at hz and at Nyquist. The bilinear
+// transform instead squeezes every response into 0..Nyquist, so bells narrow and lean near the top.
+Coefficients makeMatchedSection(Shape shape, double hz, double gainDb, double q, double rate) noexcept {
+    using Complex = std::complex<double>;
     const auto a = std::pow(10.0, gainDb / 40.0);
-    double b0 = 1, b1 = 0, b2 = 0, a0 = 1, a1 = 0, a2 = 0;
-    switch (shape) {
-    case Shape::Bell:
-        b0 = 1 + alpha * a; b1 = -2 * c; b2 = 1 - alpha * a;
-        a0 = 1 + alpha / a; a1 = -2 * c; a2 = 1 - alpha / a; break;
-    case Shape::LowPass:
-        b0 = (1 - c) / 2; b1 = 1 - c; b2 = b0;
-        a0 = 1 + alpha; a1 = -2 * c; a2 = 1 - alpha; break;
-    case Shape::HighPass:
-        b0 = (1 + c) / 2; b1 = -(1 + c); b2 = b0;
-        a0 = 1 + alpha; a1 = -2 * c; a2 = 1 - alpha; break;
-    case Shape::Notch:
-        b0 = 1; b1 = -2 * c; b2 = 1;
-        a0 = 1 + alpha; a1 = -2 * c; a2 = 1 - alpha; break;
-    case Shape::BandPass:
-        b0 = alpha; b1 = 0; b2 = -alpha;
-        a0 = 1 + alpha; a1 = -2 * c; a2 = 1 - alpha; break;
-    case Shape::LowShelf: {
-        const auto t = s * std::sqrt(2.0 * a);
-        b0 = a * ((a + 1) - (a - 1) * c + t);
-        b1 = 2 * a * ((a - 1) - (a + 1) * c);
-        b2 = a * ((a + 1) - (a - 1) * c - t);
-        a0 = (a + 1) + (a - 1) * c + t;
-        a1 = -2 * ((a - 1) + (a + 1) * c);
-        a2 = (a + 1) + (a - 1) * c - t; break;
+    const auto poleQ = shape == Shape::Bell ? q * a : q;
+    const auto analogPowerAt = [&](double frequency) {
+        const Complex s(0.0, frequency / hz);
+        const auto denominator = s * s + s / poleQ + 1.0;
+        switch (shape) {
+        case Shape::Bell: return std::norm((s * s + s * a / q + 1.0) / denominator);
+        case Shape::HighPass: return std::norm(s * s / denominator);
+        case Shape::Notch: return std::norm((s * s + 1.0) / denominator);
+        case Shape::BandPass: return std::norm(s / q / denominator);
+        default: return std::norm(1.0 / denominator);
+        }
+    };
+
+    const auto w0 = 2.0 * std::numbers::pi * hz / rate;
+    const auto zeta = 1.0 / (2.0 * poleQ);
+    const auto ringing = zeta <= 1.0 ? std::cos(w0 * std::sqrt(1.0 - zeta * zeta)) : std::cosh(w0 * std::sqrt(zeta * zeta - 1.0));
+    const auto a1 = -2.0 * std::exp(-zeta * w0) * ringing;
+    const auto a2 = std::exp(-2.0 * zeta * w0);
+
+    // |H|^2 = (B0 p0 + B1 p1 + B2 p2) / (A0 p0 + A1 p1 + A2 p2), with p1 = sin^2(w/2), p0 = 1 - p1, p2 = 4 p0 p1.
+    const auto A0 = (1 + a1 + a2) * (1 + a1 + a2), A1 = (1 - a1 + a2) * (1 - a1 + a2), A2 = -4 * a2;
+    const auto p1 = std::pow(std::sin(w0 / 2), 2), p0 = 1 - p1, p2 = 4 * p0 * p1;
+
+    // A 3-point fit gives only single zeros. High-pass needs a double zero at DC and notch a double zero at hz.
+    if (shape == Shape::HighPass) {
+        const auto b0 = std::sqrt(analogPowerAt(hz) * (A0 * p0 + A1 * p1 + A2 * p2)) / (4 * p1);
+        return {b0, -2 * b0, b0, a1, a2};
     }
-    case Shape::HighShelf: {
-        const auto t = s * std::sqrt(2.0 * a);
-        b0 = a * ((a + 1) + (a - 1) * c + t);
-        b1 = -2 * a * ((a - 1) + (a + 1) * c);
-        b2 = a * ((a + 1) + (a - 1) * c - t);
-        a0 = (a + 1) - (a - 1) * c + t;
-        a1 = 2 * ((a - 1) - (a + 1) * c);
-        a2 = (a + 1) - (a - 1) * c - t; break;
+    if (shape == Shape::Notch) {
+        const auto b0 = (1 + a1 + a2) / (2 - 2 * std::cos(w0));
+        return {b0, -2 * b0 * std::cos(w0), b0, a1, a2};
     }
-    }
+
+    const auto B0 = analogPowerAt(0) * A0;
+    const auto B1 = analogPowerAt(rate / 2) * A1;
+    const auto B2 = (analogPowerAt(hz) * (A0 * p0 + A1 * p1 + A2 * p2) - B0 * p0 - B1 * p1) / p2;
+
+    // Factor the numerator. The larger root goes to b0, which keeps the zeros inside the unit circle (minimum phase).
+    const auto rootB0 = std::sqrt(B0), rootB1 = std::sqrt(B1);
+    const auto w = 0.5 * (rootB0 + rootB1);
+    const auto b0 = 0.5 * (w + std::sqrt(std::max(0.0, w * w + B2)));
+    const auto b1 = 0.5 * (rootB0 - rootB1);
+    const auto b2 = b0 > 0 ? -B2 / (4 * b0) : 0.0;
+    return {b0, b1, b2, a1, a2};
+}
+
+// Shelves keep the cookbook design (W3C Audio EQ Cookbook, S = 1). Their pole sits above or below hz by the gain,
+// so it can pass Nyquist, where impulse invariance aliases.
+Coefficients makeSection(Shape shape, double hz, double gainDb, double q, double rate) noexcept {
+    if (shape != Shape::LowShelf && shape != Shape::HighShelf) return makeMatchedSection(shape, hz, gainDb, q, rate);
+    const auto w = 2.0 * std::numbers::pi * hz / rate;
+    const auto c = std::cos(w), s = std::sin(w);
+    const auto a = std::pow(10.0, gainDb / 40.0);
+    const auto t = s * std::sqrt(2.0 * a);
+    const auto sign = shape == Shape::LowShelf ? 1.0 : -1.0;
+    const auto b0 = a * ((a + 1) - sign * (a - 1) * c + t);
+    const auto b1 = sign * 2 * a * ((a - 1) - sign * (a + 1) * c);
+    const auto b2 = a * ((a + 1) - sign * (a - 1) * c - t);
+    const auto a0 = (a + 1) + sign * (a - 1) * c + t;
+    const auto a1 = -sign * 2 * ((a - 1) + sign * (a + 1) * c);
+    const auto a2 = (a + 1) + sign * (a - 1) * c - t;
     return {b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0};
 }
 }

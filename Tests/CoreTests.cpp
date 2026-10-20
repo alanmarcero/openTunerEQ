@@ -2,6 +2,7 @@
 #include "Filters.h"
 #include "Equalizer.h"
 #include <cmath>
+#include <complex>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
@@ -51,6 +52,22 @@ int main() {
             check(responseDb(s, 48000, rejected) < -slope * 1.9, "cut slope attenuation");
         }
     }
+    // Matched sections follow the analog prototype near Nyquist, where the bilinear cookbook design was off by 5 to 26 dB.
+    const auto analogDb = [](const BandSettings& b, double hz) {
+        const std::complex<double> j(0, hz / b.frequency);
+        const auto a = std::pow(10.0, b.gainDb / 40.0);
+        const auto h = b.shape == Shape::Bell ? (j * j + j * a / b.q + 1.0) / (j * j + j / (a * b.q) + 1.0)
+                     : b.shape == Shape::LowPass ? 1.0 / (j * j + j / b.q + 1.0)
+                     : j * j / (j * j + j / b.q + 1.0);
+        return 20 * std::log10(std::abs(h));
+    };
+    BandSettings top;
+    top.shape = Shape::Bell; top.frequency = 16000; top.gainDb = 12; top.q = 0.7071;
+    for (double hz : {4000.0, 8000.0, 12000.0, 19000.0}) near(responseDb(top, 44100, hz), analogDb(top, hz), 1.5, "matched bell near Nyquist");
+    top.shape = Shape::LowPass; top.frequency = 10000; top.q = 4;
+    for (double hz : {5000.0, 15000.0, 19900.0}) near(responseDb(top, 44100, hz), analogDb(top, hz), 1.5, "matched low-pass near Nyquist");
+    top.shape = Shape::HighPass; top.frequency = 16000; top.q = 0.7071;
+    for (double hz : {1600.0, 8000.0, 19900.0}) near(responseDb(top, 44100, hz), analogDb(top, hz), 1.0, "matched high-pass keeps 12 dB/oct");
     s.shape = Shape::LowShelf; s.gainDb = -12;
     near(responseDb(s, 48000, 1), -12, 0.001, "low shelf finite attenuation");
     near(responseDb(s, 48000, 20000), 0, 0.001, "low shelf leaves highs");

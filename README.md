@@ -61,7 +61,7 @@ ctest --test-dir build-core --output-on-failure
 
 Every push and pull request runs Linux DSP tests with address/undefined-behavior sanitizers, macOS universal and Windows x64 builds, audio/state/UI tests, and [pluginval](https://github.com/Tracktion/pluginval) at strictness level 5. Passing platform jobs upload ZIPs. Pushing a `v*` tag publishes a release after all jobs pass.
 
-`Source/Core` contains the dependency-free DSP and tuning math. `Source/Plugin` contains the JUCE parameter, host, and UI integration. Filter coefficients follow the [W3C Audio EQ Cookbook](https://www.w3.org/TR/audio-eq-cookbook/). Build structure follows [openMaster](https://github.com/alanmarcero/openMaster) and [openEDMFilter](https://github.com/alanmarcero/openEDMFilter).
+`Source/Core` contains the dependency-free DSP and tuning math. `Source/Plugin` contains the JUCE parameter, host, and UI integration. Bell, pass and notch sections use Vicanek's matched second-order design ("Matched Second Order Digital Filters", 2016), so they keep their analog shape up to Nyquist. Shelves follow the [W3C Audio EQ Cookbook](https://www.w3.org/TR/audio-eq-cookbook/). Build structure follows [openMaster](https://github.com/alanmarcero/openMaster) and [openEDMFilter](https://github.com/alanmarcero/openEDMFilter).
 
 The graphite faceplate and metal tuning-fork emblem are generated raster assets embedded in the plugin. Prompts and provenance: [docs/assets.md](docs/assets.md). The screenshot above is rendered from the actual JUCE editor.
 
