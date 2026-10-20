@@ -26,7 +26,7 @@
 
 Unused controls are dimmed. For cuts, **12 dB/oct is soft; 96 dB/oct is steep**. These describe roll-off per octave, not a fixed attenuation amount or an ideal brick wall. Higher-order cuts use a Butterworth alignment with a −3 dB cutoff. Use shelf gain when you want a finite low/high cut such as −6 or −12 dB.
 
-Frequency range is 20–20,000 Hz, limited below Nyquist at lower sample rates. Note snapping selects only pitches inside that range (E0 ≈ 20.60 Hz to D#10/Eb10 ≈ 19,912.13 Hz). Octave selectors support the entire range. Mono and stereo instances are supported. The EQ is minimum phase, with no lookahead or reported latency; parameter smoothing and short bypass/topology fades reduce switching clicks.
+Frequency range is 20–20,000 Hz, limited below Nyquist at lower sample rates. Note snapping selects only pitches inside that range (at A4 = 440 Hz: E0 ≈ 20.60 Hz to D#10/Eb10 ≈ 19,912.13 Hz). Octave selectors support the entire range. Mono and stereo instances are supported. The EQ is minimum phase, with no lookahead or reported latency; parameter smoothing and short bypass/topology fades reduce switching clicks.
 
 ## Downloads and installation
 
