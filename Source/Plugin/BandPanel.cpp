@@ -1,7 +1,7 @@
 #include "BandPanel.h"
 #include "Notes.h"
 double NoteSlider::snapValue(double attempted, DragMode) {
-    return ote::effectiveFrequency(attempted, processor.readSettings().snap, processor.displaySampleRate());
+    return ote::effectiveFrequency(attempted, processor.readSettings().snap, processor.displaySampleRate(), processor.referencePitch());
 }
 BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), colour(ui::bandColours[static_cast<size_t>(band)]), frequency(p) {
     auto id = [band](const char* key) { return params::bandId(band, key); };
@@ -42,12 +42,12 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     qAttachment = std::make_unique<params::State::SliderAttachment>(p.state, id("q"), q);
     frequency.setTextValueSuffix("");
     frequency.textFromValueFunction = [this](double value) {
-        return ui::frequencyText(ote::effectiveFrequency(value, processor.readSettings().snap, processor.displaySampleRate()));
+        return ui::frequencyText(ote::effectiveFrequency(value, processor.readSettings().snap, processor.displaySampleRate(), processor.referencePitch()));
     };
     note.onChange = [this] { if (!updating) chooseNote((octave.getSelectedId()) * 12 + note.getSelectedId() - 1); };
     octave.onChange = note.onChange;
-    down.onClick = [this] { chooseNote(ote::nearestNote(processor.bandFrequency(index)) - 1); };
-    up.onClick = [this] { chooseNote(ote::nearestNote(processor.bandFrequency(index)) + 1); };
+    down.onClick = [this] { chooseNote(ote::nearestNote(processor.bandFrequency(index), processor.referencePitch()) - 1); };
+    up.onClick = [this] { chooseNote(ote::nearestNote(processor.bandFrequency(index), processor.referencePitch()) + 1); };
     down.setTooltip("One semitone down"); up.setTooltip("One semitone up");
     addMouseListener(this, true);
     refresh();
@@ -59,7 +59,7 @@ void BandPanel::populateNotes() {
     note.setSelectedId(old, juce::dontSendNotification); updating = false;
 }
 void BandPanel::chooseNote(int midi) {
-    const auto hzValue = ote::noteFrequency(midi);
+    const auto hzValue = ote::noteFrequency(midi, processor.referencePitch());
     if (hzValue < ote::minFrequency || hzValue > std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49)) { refresh(); return; }
     processor.setParameter(params::bandId(index, "freq"), static_cast<float>(hzValue));
     if (onSelect) onSelect(index);
@@ -69,24 +69,24 @@ void BandPanel::refresh() {
     if (lastFlats != processor.usesFlats()) populateNotes();
     updating = true;
     const auto frequencyValue = processor.bandFrequency(index);
-    const auto midi = ote::nearestNote(frequencyValue);
+    const auto midi = ote::nearestNote(frequencyValue, processor.referencePitch());
     note.setSelectedId((midi % 12) + 1, juce::dontSendNotification);
     octave.setSelectedId(midi / 12, juce::dontSendNotification);
     const auto max = std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49);
     for (int pitch = 0; pitch < 12; ++pitch) {
-        const auto f = ote::noteFrequency((midi / 12) * 12 + pitch);
+        const auto f = ote::noteFrequency((midi / 12) * 12 + pitch, processor.referencePitch());
         note.setItemEnabled(pitch + 1, f >= 20 && f <= max);
     }
     for (int oct = 0; oct <= 10; ++oct) {
-        const auto f = ote::noteFrequency((oct + 1) * 12 + midi % 12);
+        const auto f = ote::noteFrequency((oct + 1) * 12 + midi % 12, processor.referencePitch());
         octave.setItemEnabled(oct + 1, f >= 20 && f <= max);
     }
-    down.setEnabled(ote::noteFrequency(midi - 1) >= 20);
-    up.setEnabled(ote::noteFrequency(midi + 1) <= max);
+    down.setEnabled(ote::noteFrequency(midi - 1, processor.referencePitch()) >= 20);
+    up.setEnabled(ote::noteFrequency(midi + 1, processor.referencePitch()) <= max);
     hz.setText(ui::frequencyText(frequencyValue), juce::dontSendNotification);
     if (!frequency.isMouseButtonDown()) frequency.updateText();
     const auto settings = processor.readSettings();
-    const auto centsValue = ote::centsFromNote(frequencyValue, midi);
+    const auto centsValue = ote::centsFromNote(frequencyValue, midi, processor.referencePitch());
     cents.setText(settings.snap ? "Locked to note" : ((centsValue >= 0 ? "+" : "") + juce::String(centsValue, 1) + " cents / free"), juce::dontSendNotification);
     const auto& b = settings.bands[static_cast<size_t>(index)];
     enabled.setButtonText(b.enabled ? "On" : "Off");

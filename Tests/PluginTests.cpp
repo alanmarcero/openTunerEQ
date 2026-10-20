@@ -22,6 +22,9 @@ int main(int argc, char** argv) {
     processor.setParameter("band0.freq", 445);
     auto settings = processor.readSettings();
     require(std::abs(processor.bandFrequency(0) - 440) < 0.001, "host automation snapped");
+    processor.setParameter("a4", 445);
+    require(std::abs(processor.bandFrequency(0) - 445) < 0.001, "snapping follows the A4 reference");
+    processor.setParameter("a4", 440);
     processor.setParameter("snap", 0);
     require(std::abs(processor.bandFrequency(0) - 445) < 0.01, "host free frequency");
     processor.setParameter("band0.freq", 20.601722f);
@@ -77,7 +80,7 @@ int main(int argc, char** argv) {
     auto* pitch = dynamic_cast<juce::ComboBox*>(find(find, *editor, "band0.note"));
     require(pitch != nullptr, "direct note selector present");
     pitch->setSelectedId(1, juce::sendNotificationSync);
-    require(ote::nearestNote(processor.bandFrequency(0)) % 12 == 0, "direct C selection changes frequency");
+    require(ote::nearestNote(processor.bandFrequency(0), processor.referencePitch()) % 12 == 0, "direct C selection changes frequency");
     processor.setParameter("snap", 1);
     processor.setParameter("band0.freq", 445);
     require(freq->getTextFromValue(445) == "440.00 Hz", "frequency text uses snapped value and one unit");
@@ -90,7 +93,7 @@ int main(int argc, char** argv) {
     require(piano != nullptr, "piano present");
     processor.setParameter("band0.freq", 16744.036f);
     piano->mouseDown(mouseAt(*piano, {piano->getWidth() * 0.5f + 5, piano->getHeight() - 8.0f}));
-    require(ote::nearestNote(processor.bandFrequency(0)) == 132, "piano follows octave 10");
+    require(ote::nearestNote(processor.bandFrequency(0), processor.referencePitch()) == 132, "piano follows octave 10");
     processor.setParameter("band0.freq", 440); processor.setParameter("band0.gain", 0);
     auto* graph = dynamic_cast<ResponseGraph*>(findType(findType, *editor, false));
     require(graph != nullptr, "graph present");

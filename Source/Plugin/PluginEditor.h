@@ -13,13 +13,13 @@ private:
     juce::Component content;
     juce::Image faceplate, emblem;
     juce::TextButton snap {"Snap to notes"}, flats {"Flats (b)"}, bypass {"Bypass"}, octaveDown {"- Oct"}, octaveUp {"+ Oct"};
-    juce::Slider output;
+    juce::Slider output, reference;
     juce::Label selectedLabel, rangeLabel;
     ResponseGraph graph;
     PianoStrip piano;
     std::array<std::unique_ptr<BandPanel>, 5> panels;
     std::unique_ptr<params::State::ButtonAttachment> snapAttachment, flatsAttachment, bypassAttachment;
-    std::unique_ptr<params::State::SliderAttachment> outputAttachment;
+    std::unique_ptr<params::State::SliderAttachment> outputAttachment, referenceAttachment;
     juce::TooltipWindow tooltips {this, 700};
     int selected = 0;
     float meter = 0;

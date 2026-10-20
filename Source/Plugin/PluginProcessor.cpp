@@ -11,6 +11,7 @@ TunerProcessor::TunerProcessor()
     }
     snap = state.getRawParameterValue("snap"); flats = state.getRawParameterValue("flats");
     bypass = state.getRawParameterValue("bypass"); output = state.getRawParameterValue("output");
+    reference = state.getRawParameterValue("a4");
 }
 void TunerProcessor::prepareToPlay(double rate, int) { uiSampleRate.store(rate); engine.prepare(rate); engine.setSettings(readSettings(), true); }
 bool TunerProcessor::isBusesLayoutSupported(const BusesLayout& layout) const {
@@ -21,6 +22,7 @@ ote::Settings TunerProcessor::readSettings() const noexcept {
     auto safe = [](const std::atomic<float>* p, float fallback) { const auto v = p->load(); return std::isfinite(v) ? v : fallback; };
     ote::Settings result;
     result.snap = snap->load() > 0.5f; result.bypass = bypass->load() > 0.5f; result.outputDb = safe(output, 0);
+    result.a4 = safe(reference, static_cast<float>(ote::standardPitch));
     for (size_t i = 0; i < values.size(); ++i) {
         const auto& v = values[i]; auto& b = result.bands[i];
         b.enabled = v.enabled->load() > 0.5f;
@@ -31,7 +33,7 @@ ote::Settings TunerProcessor::readSettings() const noexcept {
     return result;
 }
 double TunerProcessor::bandFrequency(int index) const noexcept {
-    return ote::effectiveFrequency(values[static_cast<size_t>(index)].freq->load(), snap->load() > 0.5f, uiSampleRate.load());
+    return ote::effectiveFrequency(values[static_cast<size_t>(index)].freq->load(), snap->load() > 0.5f, uiSampleRate.load(), referencePitch());
 }
 void TunerProcessor::process(juce::AudioBuffer<float>& buffer, bool forceBypass) {
     juce::ScopedNoDenormals noDenormals;

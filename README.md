@@ -9,7 +9,7 @@
 ## Controls
 
 - **Five bands:** individual enable, shape, frequency, gain and Q. All audio parameters support host automation and session recall.
-- **Snap to notes:** on by default; applies to knobs, graph dragging and host automation. Uses 12-tone equal temperament with A4 = 440 Hz. This is chromatic note snapping, not pitch detection or song-scale detection.
+- **Snap to notes:** on by default; applies to knobs, graph dragging and host automation. Uses 12-tone equal temperament from the **A4 reference** (400–480 Hz, default 440 Hz), so you can match material tuned to 432 or 442 Hz. Changing the reference moves every snapped band to the new grid. This is chromatic note snapping, not pitch detection or song-scale detection.
 - **Note + octave selectors:** jump straight to a pitch. The − / + buttons step one semitone; the piano strip and octave buttons act on the selected band.
 - **Sharp / flat spelling:** C# and Db represent the same pitch. The Flats button changes labels without changing the sound.
 - **Free tuning:** disable Snap; each band still shows its nearest note and cents offset. The large Hz readout always shows the effective filter frequency.

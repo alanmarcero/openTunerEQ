@@ -24,6 +24,7 @@ public:
     juce::AudioProcessorParameter* getBypassParameter() const override;
     ote::Settings readSettings() const noexcept;
     double bandFrequency(int band) const noexcept;
+    double referencePitch() const noexcept { return reference->load(); }
     bool usesFlats() const noexcept { return flats->load() > 0.5f; }
     double displaySampleRate() const noexcept { return uiSampleRate.load(); }
     void setParameter(const juce::String& id, float value);
@@ -32,7 +33,7 @@ public:
 private:
     struct BandValues { std::atomic<float> *enabled, *shape, *freq, *gain, *q, *slope; };
     std::array<BandValues, 5> values;
-    std::atomic<float> *snap, *flats, *bypass, *output;
+    std::atomic<float> *snap, *flats, *bypass, *output, *reference;
     std::atomic<double> uiSampleRate {48000};
     ote::Equalizer engine;
     void process(juce::AudioBuffer<float>&, bool forceBypass);
