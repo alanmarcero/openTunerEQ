@@ -41,10 +41,17 @@ void Theme::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, floa
     g.setColour(juce::Colour(0xff38414a)); g.strokePath(track, juce::PathStrokeType(2.5f));
     juce::Path arc; arc.addCentredArc(centre.x, centre.y, radius, radius, 0, start, start + position * (end - start), true);
     g.setColour(accent); g.strokePath(arc, juce::PathStrokeType(2.5f));
+    for (int tick = 0; tick <= 16; ++tick) {
+        const auto angle = start + static_cast<float>(tick) / 16 * (end - start) - juce::MathConstants<float>::halfPi;
+        const juce::Point<float> direction {std::cos(angle), std::sin(angle)};
+        g.setColour(muted.withAlpha(slider.isEnabled() ? 0.4f : 0.12f));
+        g.drawLine({centre + direction * (radius + 3), centre + direction * (radius + 5)}, 0.8f);
+    }
     const auto knob = juce::Rectangle<float>(radius * 1.6f, radius * 1.6f).withCentre(centre);
     g.setColour(juce::Colours::black.withAlpha(0.4f)); g.fillEllipse(knob.translated(0, 3));
-    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff414b55), knob.getTopLeft(), juce::Colour(0xff151c22), knob.getBottomRight(), false));
+    g.setGradientFill(juce::ColourGradient(juce::Colour(0xff607076), knob.getTopLeft(), juce::Colour(0xff151c22), knob.getBottomRight(), false));
     g.fillEllipse(knob); g.setColour(juce::Colour(0xff606870)); g.drawEllipse(knob, 0.7f);
+    g.setColour(background.withAlpha(0.6f)); g.drawEllipse(knob.reduced(2), 1);
     const auto angle = start + position * (end - start) - juce::MathConstants<float>::halfPi;
     const auto direction = juce::Point<float>(std::cos(angle), std::sin(angle));
     g.setColour(accent); g.drawLine({centre + direction * radius * 0.42f, centre + direction * radius * 0.68f}, 2.3f);
