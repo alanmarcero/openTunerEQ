@@ -51,7 +51,7 @@ jobs:
           ditto "$ARTEFACTS/VST3/openTunerEQ.vst3" dist/openTunerEQ.vst3
           ditto "$ARTEFACTS/AU/openTunerEQ.component" dist/openTunerEQ.component
           ditto "$ARTEFACTS/Standalone/openTunerEQ.app" dist/openTunerEQ.app
-          cp README.md LICENSE dist/
+          python3 scripts/package_notices.py dist
           ditto -c -k dist openTunerEQ-macOS-universal.zip
       - uses: actions/upload-artifact@v4
         with:
@@ -80,7 +80,8 @@ jobs:
           New-Item -ItemType Directory -Path dist | Out-Null
           Copy-Item -Recurse "$env:ARTEFACTS/VST3/openTunerEQ.vst3" dist/
           Copy-Item "$env:ARTEFACTS/Standalone/openTunerEQ.exe" dist/
-          Copy-Item README.md,LICENSE dist/
+          python scripts/package_notices.py dist
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Compress-Archive -Path dist/* -DestinationPath openTunerEQ-Windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
