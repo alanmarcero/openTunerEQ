@@ -4,7 +4,7 @@
 
 **Equalize in tune.** A five-band parametric EQ that treats musical notes as first-class controls. Every band shows its note, octave, and exact frequency. Snap to a semitone, choose a note directly, or switch to free Hz tuning.
 
-![Actual openTunerEQ editor](assets/screenshot.png)
+![Actual openTunerEQ editor](assets/analog-cyber-preview.png)
 
 ## Controls
 

@@ -3,7 +3,7 @@
 #include <BinaryData.h>
 TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor(p), graph(p), piano(p) {
     setLookAndFeel(&theme);
-    faceplate = juce::ImageCache::getFromMemory(BinaryData::faceplate_png, BinaryData::faceplate_pngSize);
+    faceplate = juce::ImageCache::getFromMemory(BinaryData::analogcyberfaceplate_png, BinaryData::analogcyberfaceplate_pngSize);
     emblem = juce::ImageCache::getFromMemory(BinaryData::emblem_png, BinaryData::emblem_pngSize);
     addAndMakeVisible(content);
     for (auto* button : {&snap, &flats, &bypass}) { button->setClickingTogglesState(true); content.addAndMakeVisible(button); }
@@ -69,8 +69,11 @@ void TunerEditor::resized() {
 void TunerEditor::paint(juce::Graphics& g) {
     g.fillAll(ui::background);
     g.addTransform(juce::AffineTransform::scale(getWidth() / 1160.0f));
-    g.setOpacity(0.45f); g.drawImage(faceplate, juce::Rectangle<float>(0, 0, 1160, 840), juce::RectanglePlacement::fillDestination); g.setOpacity(1);
-    g.setColour(ui::background.withAlpha(0.78f)); g.fillRect(0, 84, 1160, 756);
+    g.setOpacity(0.9f); g.drawImage(faceplate, juce::Rectangle<float>(0, 0, 1160, 840), juce::RectanglePlacement::fillDestination); g.setOpacity(1);
+    g.setColour(ui::background.withAlpha(0.26f)); g.fillRect(0, 84, 1160, 756);
+    g.setColour(ui::copper.withAlpha(0.35f)); g.drawHorizontalLine(82, 24, 1136);
+    g.setColour(ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(8, 8, 1144, 824, 8, 1);
+    g.setOpacity(1.0f);
     g.drawImageWithin(emblem, 21, 12, 58, 62, juce::RectanglePlacement::centred, false);
     ui::text(g, "openTunerEQ", {91, 16, 310, 34}, 30, ui::ink, juce::Justification::centredLeft, true);
     ui::text(g, "Equalize in tune.", {93, 54, 280, 18}, 13, ui::muted);
