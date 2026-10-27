@@ -1,10 +1,14 @@
 # openTunerEQ
 
+[Install with OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/releases/latest)
+
 [![Build and validate](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml/badge.svg)](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml)
 
 **Equalize in tune.** A five-band parametric EQ that treats musical notes as first-class controls. Every band shows its note, octave, and exact frequency. Snap to a semitone, choose a note directly, or switch to free Hz tuning.
 
-![Actual openTunerEQ editor](assets/analog-cyber-preview.png)
+![openTunerEQ native editor](assets/native-ui.png)
+
+*Captured from the released v1.1.0 VST3 editor. [Capture details and provenance](docs/SCREENSHOTS.md).*
 
 ## Controls
 
@@ -30,7 +34,12 @@ Frequency range is 20–20,000 Hz, limited below Nyquist at lower sample rates. 
 
 ## Downloads and installation
 
-Get build ZIPs from [GitHub Actions](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml) or tagged packages from [Releases](https://github.com/alanmarcero/openTunerEQ/releases).
+1. Download and install [OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/releases/latest) for macOS or Windows.
+2. Open the manager and refresh the catalog.
+3. Choose **openTunerEQ**, select **VST3** (or **AU** on macOS), and install.
+4. Rescan plugins in your DAW. If you chose a custom install folder, add it to the DAW's search paths.
+
+Get build ZIPs from [GitHub Actions](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml) or the [v1.1.0 packages from Releases](https://github.com/alanmarcero/openTunerEQ/releases/tag/v1.1.0).
 
 - **macOS:** universal Apple Silicon + Intel VST3, AU, and standalone app. Copy `openTunerEQ.vst3` to `~/Library/Audio/Plug-Ins/VST3/` or `openTunerEQ.component` to `~/Library/Audio/Plug-Ins/Components/`, then rescan in your DAW. Requires macOS 11 or newer.
 - **Windows:** x64 VST3 and standalone app. Copy the entire `openTunerEQ.vst3` directory to `C:\Program Files\Common Files\VST3\`, then rescan.
@@ -63,6 +72,6 @@ Every push and pull request runs Linux DSP tests with address/undefined-behavior
 
 `Source/Core` contains the dependency-free DSP and tuning math. `Source/Plugin` contains the JUCE parameter, host, and UI integration. Bell, pass and notch sections use Vicanek's matched second-order design ("Matched Second Order Digital Filters", 2016), so they keep their analog shape up to Nyquist. Shelves follow the [W3C Audio EQ Cookbook](https://www.w3.org/TR/audio-eq-cookbook/). Build structure follows [openMaster](https://github.com/alanmarcero/openMaster) and [openEDMFilter](https://github.com/alanmarcero/openEDMFilter).
 
-The graphite faceplate and metal tuning-fork emblem are generated raster assets embedded in the plugin. Prompts and provenance: [docs/assets.md](docs/assets.md). The screenshot above is rendered from the actual JUCE editor.
+The graphite faceplate and metal tuning-fork emblem are generated raster assets embedded in the plugin. Prompts and provenance: [docs/assets.md](docs/assets.md). The screenshot above is captured from the released VST3 editor; its provenance is linked below the image.
 
 Copyright © 2026 Alan Marcero. Source is [AGPL-3.0](LICENSE); JUCE is used under its AGPL option. See [JUCE licensing](https://juce.com/legal/juce-8-licence/).
