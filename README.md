@@ -39,7 +39,7 @@ Frequency range is 20–20,000 Hz, limited below Nyquist at lower sample rates. 
 3. Choose **openTunerEQ**, select **VST3** (or **AU** on macOS), and install.
 4. Rescan plugins in your DAW. If you chose a custom install folder, add it to the DAW's search paths.
 
-Get build ZIPs from [GitHub Actions](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml) or the [v1.1.0 packages from Releases](https://github.com/alanmarcero/openTunerEQ/releases/tag/v1.1.0).
+Get build ZIPs from [GitHub Actions](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml) or the [v1.1.1 packages from Releases](https://github.com/alanmarcero/openTunerEQ/releases/tag/v1.1.1).
 
 - **macOS:** universal Apple Silicon + Intel VST3, AU, and standalone app. Copy `openTunerEQ.vst3` to `~/Library/Audio/Plug-Ins/VST3/` or `openTunerEQ.component` to `~/Library/Audio/Plug-Ins/Components/`, then rescan in your DAW. Requires macOS 11 or newer.
 - **Windows:** x64 VST3 and standalone app. Copy the entire `openTunerEQ.vst3` directory to `C:\Program Files\Common Files\VST3\`, then rescan.

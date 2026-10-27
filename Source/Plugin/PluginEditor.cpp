@@ -86,5 +86,5 @@ void TunerEditor::paint(juce::Graphics& g) {
     ui::text(g, "Choose a key for the selected band. The keyboard follows its octave.", {240, 709, 850, 20}, 12, ui::muted);
     ui::text(g, "Alan Marcero", {25, 820, 220, 15}, 10, ui::muted);
     ui::text(g, "A4", {934, 709, 28, 20}, 12, ui::muted, juce::Justification::centredRight);
-    ui::text(g, "12-tone equal temperament   /   v1.1.0", {660, 820, 476, 15}, 10, ui::muted, juce::Justification::centredRight);
+    ui::text(g, "12-tone equal temperament   /   v" JucePlugin_VersionString, {660, 820, 476, 15}, 10, ui::muted, juce::Justification::centredRight);
 }
