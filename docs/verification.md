@@ -1,5 +1,13 @@
 # Verification
 
+Local macOS arm64 run for v1.2.1, 2026-11-03:
+
+- Release builds and all three CTest suites pass. VST3 pluginval 1.0.4 passes strictness level 5.
+- At 8/48/192 kHz, tests measure a 9 dB difference between Before EQ and After EQ for a 12 dB cut plus 3 dB output trim. Switching back restores the input level; After EQ follows global and host bypass.
+- Source selection survives session recall and defaults to Before EQ for older sessions. UI selection and disabled controls are exercised. Processed audio remains bit-identical while the source is switched.
+- Source changes discard queued packets from the other tap and partially assembled packets, clear the previous FFT/history and cannot restore stale peaks. Independent review and a separate mixed-source queue probe passed.
+- Before/after native editor captures use the same deterministic musical test signal and EQ settings. The cyan trace shows audio; the white curve shows filter response.
+
 Local macOS arm64 run for v1.2.0, 2026-11-03:
 
 - Release builds: VST3, AU, standalone app and all three test suites.

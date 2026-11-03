@@ -4,28 +4,35 @@ ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spect
     setName("Equalizer response graph");
     analyzerToggle.setComponentID("analyzerEnabled");
     analyzerToggle.setClickingTogglesState(true);
-    analyzerToggle.setTooltip("Show the live input spectrum behind the EQ. Turning this off stops analysis.");
+    analyzerToggle.setTooltip("Show the track's live audio spectrum behind the EQ response. Turning this off stops analysis.");
     analyzerStyle.setComponentID("analyzerStyle");
     analyzerStyle.addItemList({"Spectrum", "Bars", "Spectrogram"}, 1);
     analyzerStyle.setTooltip("Spectrum: detailed peaks. Bars: frequency regions. Spectrogram: recent frequency history, newest at the top.");
-    addAndMakeVisible(analyzerToggle); addAndMakeVisible(analyzerStyle);
+    analyzerSource.setComponentID("analyzerSource");
+    analyzerSource.addItemList({"Before EQ", "After EQ"}, 1);
+    analyzerSource.setTooltip("Before EQ: the incoming track. After EQ: the processed track, including output gain and bypass.");
+    addAndMakeVisible(analyzerToggle); addAndMakeVisible(analyzerStyle); addAndMakeVisible(analyzerSource);
     analyzerAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "analyzerEnabled", analyzerToggle);
     styleAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, "analyzerStyle", analyzerStyle);
+    sourceAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, "analyzerSource", analyzerSource);
     refresh();
 }
 ResponseGraph::~ResponseGraph() { processor.spectrum.setActive(false); endGesture(); }
 void ResponseGraph::resized() {
-    analyzerToggle.setBounds(getWidth() - 264, 5, 100, 25);
+    analyzerToggle.setBounds(getWidth() - 400, 5, 100, 25);
+    analyzerSource.setBounds(getWidth() - 292, 5, 128, 25);
     analyzerStyle.setBounds(getWidth() - 156, 5, 140, 25);
 }
 void ResponseGraph::refresh() {
     const auto enabled = processor.state.getRawParameterValue("analyzerEnabled")->load() > 0.5f;
     const auto nextStyle = juce::jlimit(0, 2, static_cast<int>(processor.state.getRawParameterValue("analyzerStyle")->load()));
-    if (enabled != analyzerOn || nextStyle != style) history.clear(history.getBounds());
-    analyzerOn = enabled; style = nextStyle;
+    const auto nextAfterEQ = processor.state.getRawParameterValue("analyzerSource")->load() > 0.5f;
+    if (enabled != analyzerOn || nextStyle != style || nextAfterEQ != afterEQ) history.clear(history.getBounds());
+    analyzerOn = enabled; style = nextStyle; afterEQ = nextAfterEQ;
     analyzerStyle.setEnabled(enabled);
+    analyzerSource.setEnabled(enabled);
     processor.spectrum.setActive(enabled);
-    if (enabled) analyzer.update(juce::Time::getMillisecondCounterHiRes() * 0.001);
+    if (enabled) analyzer.update(juce::Time::getMillisecondCounterHiRes() * 0.001, afterEQ);
     else {
         SpectrumCapture::Packet discarded;
         for (int i = 0; i < 256 && processor.spectrum.pop(discarded); ++i) {}
@@ -58,15 +65,15 @@ void ResponseGraph::paint(juce::Graphics& g) {
     auto area = getLocalBounds().toFloat(); auto p = plot();
     g.setColour(juce::Colour(0xff0e151b).withAlpha(0.97f)); g.fillRoundedRectangle(area, 9);
     g.setColour(ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(area.reduced(0.5f), 9, 1);
-    ui::text(g, "Frequency response", {18, 8, 180, 20}, 13, ui::ink, juce::Justification::centredLeft, true);
-    juce::String caption = analyzerOn ? (style == 2 ? "Input history / newest at top / brighter = louder" : "Input / dBFS / Alt-click to tune selected band") : "Drag a band / Scroll for Q / Double-click to bypass";
+    ui::text(g, "Live audio + EQ", {18, 8, 180, 20}, 13, ui::ink, juce::Justification::centredLeft, true);
+    juce::String caption = analyzerOn ? (style == 2 ? "Audio history: newest at top / White: EQ response" : "Cyan: track audio (dBFS) / White: EQ response") : "Drag a band / Scroll for Q / Double-click to bypass";
     if (hoverX >= 0) {
         const auto hz = frequencyAt(hoverX);
         caption = juce::String(hz, 1) + " Hz / " + ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats());
-        if (analyzerOn) caption += " / " + juce::String(analyzer.levelAt(hz), 1) + " dBFS input";
+        if (analyzerOn) caption += " / " + juce::String(analyzer.levelAt(hz), 1) + (afterEQ ? " dBFS after EQ" : " dBFS before EQ");
         caption += " / Alt-click to tune";
     }
-    ui::text(g, caption, {206, 8, area.getWidth() - 484, 20}, 11, ui::muted);
+    ui::text(g, caption, {206, 8, area.getWidth() - 620, 20}, 11, ui::muted);
     if (analyzerOn) paintSpectrum(g);
     for (int db = -24; db <= 24; db += 6) {
         const auto y = yFor(db); g.setColour(ui::muted.withAlpha(db == 0 ? 0.28f : 0.09f)); g.drawHorizontalLine(static_cast<int>(y), p.getX(), p.getRight());

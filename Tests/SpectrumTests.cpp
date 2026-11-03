@@ -37,6 +37,22 @@ int main() {
     }
     tone(48000, 1000, true);
     require(analyzer.levelAt(1000) > -8, "opposite-polarity stereo does not cancel");
+    capture.push(audio, true);
+    analyzer.update(time + 0.01, true);
+    require(analyzer.levelAt(1000) == SpectrumAnalyzer::floorDb, "source switch clears old spectrum and discards queued input packets");
+    audio.clear();
+    for (int i = 0; i < 32; ++i) capture.push(audio, true, true);
+    analyzer.update(time + 0.05, true);
+    require(analyzer.levelAt(1000) == SpectrumAnalyzer::floorDb, "after-EQ silence does not inherit before-EQ peaks");
+    capture.prepare(48000);
+    audio.setSize(2, 31);
+    for (int c = 0; c < 2; ++c) for (int i = 0; i < 31; ++i) audio.setSample(c, i, 1.0f);
+    capture.push(audio, true, false);
+    audio.setSize(2, 256); audio.clear();
+    capture.push(audio, true, true);
+    SpectrumCapture::Packet packet;
+    require(capture.pop(packet) && packet.afterEQ, "source switch publishes a packet from the new tap");
+    require(std::all_of(packet.left.begin(), packet.left.end(), [](float sample) { return sample == 0; }), "source switch discards a partial packet from the old tap");
     tone(48000, 65, false, 1);
     require(analyzer.levelAt(65) > -8 && analyzer.levelAt(1000) < -65, "mono bass replaces previous spectrum");
     analyzer.update(time + 0.5);

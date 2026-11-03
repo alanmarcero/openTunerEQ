@@ -35,7 +35,7 @@ public:
 private:
     struct BandValues { std::atomic<float> *enabled, *shape, *freq, *gain, *q, *slope; };
     std::array<BandValues, 5> values;
-    std::atomic<float> *snap, *flats, *bypass, *output, *reference, *analyzerEnabled;
+    std::atomic<float> *snap, *flats, *bypass, *output, *reference, *analyzerEnabled, *analyzerSource;
     std::atomic<double> uiSampleRate {48000};
     ote::Equalizer engine;
     void process(juce::AudioBuffer<float>&, bool forceBypass);

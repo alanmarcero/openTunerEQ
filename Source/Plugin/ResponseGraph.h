@@ -21,11 +21,12 @@ private:
     TunerProcessor& processor;
     SpectrumAnalyzer analyzer;
     juce::TextButton analyzerToggle {"Visualizer"};
-    juce::ComboBox analyzerStyle;
+    juce::ComboBox analyzerStyle, analyzerSource;
     std::unique_ptr<params::State::ButtonAttachment> analyzerAttachment;
-    std::unique_ptr<params::State::ComboBoxAttachment> styleAttachment;
+    std::unique_ptr<params::State::ComboBoxAttachment> styleAttachment, sourceAttachment;
     juce::Image history {juce::Image::RGB, 512, 128, true};
     bool analyzerOn = true;
+    bool afterEQ = false;
     int style = 0;
     float hoverX = -1;
     int selected = 0, dragging = -1;

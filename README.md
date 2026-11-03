@@ -8,7 +8,7 @@
 
 ![openTunerEQ native editor](assets/native-ui.png)
 
-*The v1.2.0 editor showing its live input spectrum behind the EQ. [Capture details](docs/SCREENSHOTS.md).*
+*The v1.2.1 editor: cyan shows the track’s live audio spectrum; white shows the EQ response. [Capture details](docs/SCREENSHOTS.md).*
 
 ## Controls
 
@@ -18,8 +18,8 @@
 - **Sharp / flat spelling:** C# and Db represent the same pitch. The Flats button changes labels without changing the sound.
 - **Free tuning:** disable Snap; each band still shows its nearest note and cents offset. The large Hz readout always shows the effective filter frequency.
 - **Response graph:** drag numbered nodes for frequency and gain; scroll for Q; double-click a node to bypass that band. Colors link nodes to controls. The white line is the total response, including output trim.
-- **Live visualizer:** on by default behind the EQ graph. Switch between **Spectrum** (detailed peaks), **Bars** (narrow frequency regions), and **Spectrogram** (about five seconds of frequency history, newest at the top and louder content brighter). All three share the EQ's logarithmic 20 Hz–20 kHz axis. The Visualizer button turns analysis off; the button and style are saved with your session. Older sessions start with the visualizer on.
-- **Find a frequency:** hover over the graph for Hz, nearest note, and input level; **Alt/Option-click** to move the selected EQ band there without changing its gain. Note snapping still applies; turn Snap off for exact Hz placement. The analyzer shows the input before EQ, combining channel magnitudes so opposite-polarity stereo remains visible. Spectrum/Bars use the right-hand −90 to 0 dBFS scale; the left-hand ±24 dB scale belongs to the EQ response. Spectrogram height represents time, with level shown by color. The analyzer does not change audio or add latency, and stops analyzing when the editor is closed.
+- **Live visualizer:** on by default behind the EQ graph. Switch between **Spectrum** (detailed peaks), **Bars** (narrow frequency regions), and **Spectrogram** (about five seconds of frequency history, newest at the top and louder content brighter). All three share the EQ's logarithmic 20 Hz–20 kHz axis. The Visualizer button turns analysis off; the button, source and style are saved with your session. Older sessions start with the visualizer on.
+- **Find a frequency:** hover over the graph for Hz, nearest note, and selected audio level; **Alt/Option-click** to move the selected EQ band there without changing its gain. Note snapping still applies; turn Snap off for exact Hz placement. Use **Before EQ / After EQ** to switch between the incoming track and the processed output (including output trim and bypass). The analyzer combines channel magnitudes so opposite-polarity stereo remains visible. Switching source clears the previous spectrum/history so the two signals do not mix. Before EQ is the default for new and older sessions. Spectrum/Bars use the right-hand −90 to 0 dBFS scale; the left-hand ±24 dB scale belongs to the EQ response. Spectrogram height represents time, with level shown by color. The analyzer does not change audio or add latency, and stops analyzing when the editor is closed.
 - **Output / Bypass:** −24 to +12 dB output trim. Global bypass also bypasses output trim. Watch the output meter when boosting several bands.
 
 | Shape | Gain | Q | Slope |
@@ -41,7 +41,7 @@ Frequency range is 20–20,000 Hz, limited below Nyquist at lower sample rates. 
 3. Choose **openTunerEQ**, select **VST3** (or **AU** on macOS), and install.
 4. Rescan plugins in your DAW. If you chose a custom install folder, add it to the DAW's search paths.
 
-Get build ZIPs from [GitHub Actions](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml) or the [v1.2.0 packages from Releases](https://github.com/alanmarcero/openTunerEQ/releases/tag/v1.2.0).
+Get build ZIPs from [GitHub Actions](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml) or the [v1.2.1 packages from Releases](https://github.com/alanmarcero/openTunerEQ/releases/tag/v1.2.1).
 
 - **macOS:** universal Apple Silicon + Intel VST3, AU, and standalone app. Copy `openTunerEQ.vst3` to `~/Library/Audio/Plug-Ins/VST3/` or `openTunerEQ.component` to `~/Library/Audio/Plug-Ins/Components/`, then rescan in your DAW. Requires macOS 11 or newer.
 - **Windows:** x64 VST3 and standalone app. Copy the entire `openTunerEQ.vst3` directory to `C:\Program Files\Common Files\VST3\`, then rescan.

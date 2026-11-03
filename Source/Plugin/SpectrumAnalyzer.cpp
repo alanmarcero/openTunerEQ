@@ -1,11 +1,12 @@
 #include "SpectrumAnalyzer.h"
 
-void SpectrumCapture::push(const juce::AudioBuffer<float>& audio, bool enabled) noexcept {
+void SpectrumCapture::push(const juce::AudioBuffer<float>& audio, bool enabled, bool afterEQ) noexcept {
     const auto current = view.load();
     if (!enabled || !active.load() || audio.getNumChannels() == 0) { capturing = false; return; }
-    if (!capturing || pending.view != current) {
+    if (!capturing || pending.view != current || pending.afterEQ != afterEQ) {
         ++stream; capturing = true;
         pending.count = 0; pending.rate = sampleRate; pending.stream = stream; pending.view = current;
+        pending.afterEQ = afterEQ;
     }
     for (int offset = 0; offset < audio.getNumSamples();) {
         const auto count = std::min(256 - pending.count, audio.getNumSamples() - offset);
@@ -46,12 +47,13 @@ void SpectrumAnalyzer::reset() {
     position = 0; collected = 0;
     std::fill(levels.begin(), levels.end(), floorDb);
 }
-bool SpectrumAnalyzer::update(double now) {
+bool SpectrumAnalyzer::update(double now, bool useAfterEQ) {
+    if (afterEQ != useAfterEQ) { reset(); afterEQ = useAfterEQ; }
     SpectrumCapture::Packet packet;
     bool received = false;
     // Bound draining even if an offline host produces audio faster than the UI can consume it.
     for (int count = 0; count < 256 && capture.pop(packet); ++count) {
-        if (packet.view != capture.currentView()) continue;
+        if (packet.view != capture.currentView() || packet.afterEQ != afterEQ) continue;
         if (packet.stream != stream || packet.view != view || packet.rate != sampleRate) configure(packet);
         const int size = fft->getSize();
         for (int i = 0; i < packet.count; ++i) {

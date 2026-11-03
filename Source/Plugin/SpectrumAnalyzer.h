@@ -9,13 +9,14 @@ public:
         int count = 0;
         double rate = 48000;
         unsigned stream = 0, view = 0;
+        bool afterEQ = false;
     };
     SpectrumCapture() : packets(std::make_unique<Packet[]>(capacity)) {}
     void prepare(double rate) noexcept { sampleRate = rate; capturing = false; }
     void setActive(bool value) noexcept {
         if (active.exchange(value) != value) view.fetch_add(1);
     }
-    void push(const juce::AudioBuffer<float>&, bool enabled) noexcept;
+    void push(const juce::AudioBuffer<float>&, bool enabled, bool afterEQ = false) noexcept;
     bool pop(Packet&) noexcept;
     unsigned currentView() const noexcept { return view.load(); }
 private:
@@ -34,7 +35,7 @@ class SpectrumAnalyzer {
 public:
     static constexpr float floorDb = -90.0f;
     explicit SpectrumAnalyzer(SpectrumCapture& source) : capture(source) {}
-    bool update(double nowSeconds);
+    bool update(double nowSeconds, bool afterEQ = false);
     void reset();
     float levelAt(double hz) const;
     float levelInRange(double lowHz, double highHz) const;
@@ -46,5 +47,6 @@ private:
     float normalization = 1;
     int position = 0, collected = 0;
     unsigned stream = 0, view = 0;
+    bool afterEQ = false;
     void configure(const SpectrumCapture::Packet&);
 };
