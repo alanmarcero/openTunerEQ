@@ -1,5 +1,6 @@
 #pragma once
 #include "Parameters.h"
+#include "SpectrumAnalyzer.h"
 class TunerProcessor final : public juce::AudioProcessor {
 public:
     TunerProcessor();
@@ -29,11 +30,12 @@ public:
     double displaySampleRate() const noexcept { return uiSampleRate.load(); }
     void setParameter(const juce::String& id, float value);
     params::State state;
+    SpectrumCapture spectrum;
     std::atomic<float> peak {0};
 private:
     struct BandValues { std::atomic<float> *enabled, *shape, *freq, *gain, *q, *slope; };
     std::array<BandValues, 5> values;
-    std::atomic<float> *snap, *flats, *bypass, *output, *reference;
+    std::atomic<float> *snap, *flats, *bypass, *output, *reference, *analyzerEnabled;
     std::atomic<double> uiSampleRate {48000};
     ote::Equalizer engine;
     void process(juce::AudioBuffer<float>&, bool forceBypass);

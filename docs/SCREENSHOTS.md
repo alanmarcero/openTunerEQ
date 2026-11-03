@@ -1,11 +1,11 @@
-# Native UI screenshot
+# Native UI screenshots
 
-![Released plugin editor](../assets/native-ui.png)
+![Spectrum behind the EQ](../assets/native-ui.png)
 
-`assets/native-ui.png` was captured on macOS on 2026-10-27 from the actual **v1.1.0 VST3 editor**, loaded in a JUCE 8.0.9 host. It shows the plugin's default state while processing a stereo test signal at 48 kHz with a 120 BPM host transport. The host renders the native AppKit view into a PNG at the display's backing resolution (2320 × 1680). Controls, labels, meters and version text come from the running plugin.
+These v1.2.0 screenshots were captured on macOS on 2026-11-03 from the actual JUCE editor created by the processor/UI test harness. The plugin processes a stereo multitone signal at 48 kHz, with peaks at approximately 65, 131, 262, 880, 1760, 2794 and 8372 Hz. The EQ bands have representative boosts and cuts. Text, curves, controls and spectrum data are rendered by the plugin; no visualization is painted into the faceplate image.
 
-- [Release v1.1.0](https://github.com/alanmarcero/openTunerEQ/releases/tag/v1.1.0)
-- Source commit: [`175dab8`](https://github.com/alanmarcero/openTunerEQ/commit/175dab8739fcd1bb2739ffe77f352de724c858dd)
-- Release asset: `openTunerEQ-macOS-universal.zip`
-- Archive SHA-256, verified before capture: `d3f6cf76ed992a7a03331714ed646eb9d92093a55e5d83bbab4e1a24e5c16ce1`
-- Screenshot SHA-256: `2d8ff91960e5ffe6670b10c189b1d7e7d9963cd205ac8bfdf01ae4999eff50ea`
+Run `build/plugin_tests assets/native-ui.png` after a Release build to reproduce all three 1740 × 1260 captures. The screenshot path processes audio and refreshes the graph at approximately its normal 24 Hz cadence. These are native component snapshots, not screenshots from a DAW or a downloaded release archive.
+
+![Bars behind the EQ](../assets/native-ui-bars.png)
+
+![Spectrogram behind the EQ](../assets/native-ui-spectrogram.png)

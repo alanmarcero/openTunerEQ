@@ -45,7 +45,7 @@ void TunerEditor::select(int band) {
 }
 void TunerEditor::timerCallback() {
     for (auto& panel : panels) panel->refresh();
-    graph.repaint(); piano.repaint();
+    graph.refresh(); piano.repaint();
     const auto hz = processor.bandFrequency(selected); const auto midi = ote::nearestNote(hz, processor.referencePitch());
     selectedLabel.setText("Band " + juce::String(selected + 1) + "  /  " + juce::String(ote::noteName(midi, processor.usesFlats())), juce::dontSendNotification);
     selectedLabel.setColour(juce::Label::textColourId, ui::bandColours[static_cast<size_t>(selected)]);

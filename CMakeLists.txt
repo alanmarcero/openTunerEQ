@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(openTunerEQ VERSION 1.1.1 LANGUAGES C CXX)
+project(openTunerEQ VERSION 1.2.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(MSVC)
@@ -35,14 +35,19 @@ if(OTE_BUILD_PLUGIN)
     target_sources(openTunerEQ PRIVATE
         Source/Plugin/Parameters.cpp Source/Plugin/PluginProcessor.cpp
         Source/Plugin/Theme.cpp Source/Plugin/BandPanel.cpp
-        Source/Plugin/ResponseGraph.cpp Source/Plugin/PluginEditor.cpp)
+        Source/Plugin/ResponseGraph.cpp Source/Plugin/PluginEditor.cpp Source/Plugin/SpectrumAnalyzer.cpp)
     target_include_directories(openTunerEQ PUBLIC Source/Plugin)
     target_compile_definitions(openTunerEQ PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
     target_link_libraries(openTunerEQ PRIVATE tuner_core TunerAssets
-        PUBLIC juce::juce_audio_utils juce::juce_recommended_config_flags)
+        PUBLIC juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)
     if(OTE_BUILD_TESTS)
         add_executable(plugin_tests Tests/PluginTests.cpp)
         target_link_libraries(plugin_tests PRIVATE openTunerEQ tuner_core TunerAssets)
         add_test(NAME plugin COMMAND plugin_tests)
+        add_executable(spectrum_tests Tests/SpectrumTests.cpp Source/Plugin/SpectrumAnalyzer.cpp)
+        target_include_directories(spectrum_tests PRIVATE Source/Plugin)
+        target_compile_definitions(spectrum_tests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+        target_link_libraries(spectrum_tests PRIVATE juce::juce_dsp juce::juce_recommended_config_flags)
+        add_test(NAME spectrum COMMAND spectrum_tests)
     endif()
 endif()

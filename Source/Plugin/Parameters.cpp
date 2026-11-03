@@ -25,6 +25,8 @@ State::ParameterLayout layout() {
     result.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("a4", 1), "A4 reference", juce::NormalisableRange<float>(400, 480, 0.1f),
                                                            static_cast<float>(ote::standardPitch),
                                                            juce::AudioParameterFloatAttributes().withLabel("Hz")));
+    result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("analyzerEnabled", 2), "Live analyzer", true));
+    result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerStyle", 2), "Analyzer style", juce::StringArray {"Spectrum", "Bars", "Spectrogram"}, 0));
     return result;
 }
 }

@@ -12,8 +12,9 @@ TunerProcessor::TunerProcessor()
     snap = state.getRawParameterValue("snap"); flats = state.getRawParameterValue("flats");
     bypass = state.getRawParameterValue("bypass"); output = state.getRawParameterValue("output");
     reference = state.getRawParameterValue("a4");
+    analyzerEnabled = state.getRawParameterValue("analyzerEnabled");
 }
-void TunerProcessor::prepareToPlay(double rate, int) { uiSampleRate.store(rate); engine.prepare(rate); engine.setSettings(readSettings(), true); }
+void TunerProcessor::prepareToPlay(double rate, int) { uiSampleRate.store(rate); spectrum.prepare(rate); engine.prepare(rate); engine.setSettings(readSettings(), true); }
 bool TunerProcessor::isBusesLayoutSupported(const BusesLayout& layout) const {
     auto main = layout.getMainOutputChannelSet();
     return (main == juce::AudioChannelSet::mono() || main == juce::AudioChannelSet::stereo()) && main == layout.getMainInputChannelSet();
@@ -38,6 +39,7 @@ double TunerProcessor::bandFrequency(int index) const noexcept {
 void TunerProcessor::process(juce::AudioBuffer<float>& buffer, bool forceBypass) {
     juce::ScopedNoDenormals noDenormals;
     for (int i = getTotalNumInputChannels(); i < buffer.getNumChannels(); ++i) buffer.clear(i, 0, buffer.getNumSamples());
+    spectrum.push(buffer, analyzerEnabled->load() > 0.5f);
     auto settings = readSettings(); settings.bypass = settings.bypass || forceBypass;
     engine.setSettings(settings);
     engine.process(buffer.getArrayOfWritePointers(), std::min(2, buffer.getNumChannels()), buffer.getNumSamples());
