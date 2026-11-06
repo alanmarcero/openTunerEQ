@@ -26,7 +26,7 @@ jobs:
           ctest --test-dir build-core --output-on-failure
   macos:
     name: macOS · Universal VST3 + AU
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Configure
