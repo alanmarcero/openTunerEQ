@@ -76,14 +76,12 @@ void TunerEditor::paint(juce::Graphics& g) {
     g.setOpacity(1.0f);
     g.drawImageWithin(emblem, 21, 12, 58, 62, juce::RectanglePlacement::centred, false);
     ui::text(g, "openTunerEQ", {91, 16, 310, 34}, 30, ui::ink, juce::Justification::centredLeft, true);
-    ui::text(g, "Equalize in tune.", {93, 54, 280, 18}, 13, ui::muted);
     ui::text(g, "Output", {787, 31, 55, 24}, 12, ui::muted);
     const auto db = juce::Decibels::gainToDecibels(meter, -60.0f);
     g.setColour(ui::muted.withAlpha(0.2f)); g.fillRoundedRectangle(1073, 26, 63, 7, 3);
     g.setColour(db > 0 ? juce::Colour(0xffe98779) : ui::bandColours[2]); g.fillRoundedRectangle(1073, 26, juce::jlimit(0.0f, 63.0f, (db + 60) / 60 * 63), 7, 3);
     ui::text(g, meter < 0.001f ? "-inf dB" : juce::String(db, 1) + " dB", {1060, 38, 76, 19}, 11, ui::muted, juce::Justification::centredRight);
-    ui::text(g, "Play the frequency.", {26, 705, 200, 24}, 15, ui::ink, juce::Justification::centredLeft, true);
-    ui::text(g, "Choose a key for the selected band. The keyboard follows its octave.", {240, 709, 850, 20}, 12, ui::muted);
+    ui::text(g, "Choose a key for the selected band. The keyboard follows its octave.", {26, 705, 880, 24}, 13, ui::muted);
     ui::text(g, "Alan Marcero", {25, 820, 220, 15}, 10, ui::muted);
     ui::text(g, "A4", {934, 709, 28, 20}, 12, ui::muted, juce::Justification::centredRight);
     ui::text(g, "12-tone equal temperament   /   v" JucePlugin_VersionString, {660, 820, 476, 15}, 10, ui::muted, juce::Justification::centredRight);

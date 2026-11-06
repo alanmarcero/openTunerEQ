@@ -4,7 +4,7 @@
 
 [![Build and validate](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml/badge.svg)](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml)
 
-**Equalize in tune.** A five-band parametric EQ that treats musical notes as first-class controls. Every band shows its note, octave, and exact frequency. Snap to a semitone, choose a note directly, or switch to free Hz tuning.
+A five-band parametric EQ. Every band shows its note, octave, and frequency. Snap to a semitone, choose a note directly, or tune in Hz.
 
 ![openTunerEQ native editor](assets/native-ui.png)
 
