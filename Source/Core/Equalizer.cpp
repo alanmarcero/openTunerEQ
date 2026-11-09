@@ -116,7 +116,13 @@ void Equalizer::process(float* const* channels, int channelCount, int samples) n
         }
         for (int c = 0; c < channelCount; ++c) {
             const auto idx = static_cast<size_t>(c);
-            channels[c][frame] = static_cast<float>(dry[idx] + bypassWet * (wet[idx] * outputGain - dry[idx]));
+            double sample = dry[idx] + bypassWet * (wet[idx] * outputGain - dry[idx]);
+            if (std::abs(sample) > 1.05) {
+                const double sign = sample < 0.0 ? -1.0 : 1.0;
+                const double mag = std::abs(sample);
+                sample = sign * (1.05 + 0.35 * std::tanh((mag - 1.05) / 0.35));
+            }
+            channels[c][frame] = static_cast<float>(sample);
         }
     }
 }

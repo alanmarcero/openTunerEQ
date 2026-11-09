@@ -76,6 +76,7 @@ void TunerEditor::paint(juce::Graphics& g) {
     g.setOpacity(1.0f);
     g.drawImageWithin(emblem, 21, 12, 58, 62, juce::RectanglePlacement::centred, false);
     ui::text(g, "openTunerEQ", {91, 16, 310, 34}, 30, ui::ink, juce::Justification::centredLeft, true);
+    ui::text(g, "VICANEK MATCHED ANALOG FILTER ENGINE", {93, 50, 330, 18}, 11, ui::copper);
     ui::text(g, "Output", {787, 31, 55, 24}, 12, ui::muted);
     const auto db = juce::Decibels::gainToDecibels(meter, -60.0f);
     g.setColour(ui::muted.withAlpha(0.2f)); g.fillRoundedRectangle(1073, 26, 63, 7, 3);
