@@ -8,7 +8,7 @@ A five-band parametric EQ. Every band shows its note, octave, and frequency. Sna
 
 ![openTunerEQ native editor](assets/native-ui.png)
 
-*The v1.2.1 editor: cyan shows the track’s live audio spectrum; white shows the EQ response. [Capture details](docs/SCREENSHOTS.md).*
+*The v1.2.2 editor: cyan shows the track’s live audio spectrum; white shows the EQ response. [Capture details](docs/SCREENSHOTS.md).*
 
 ## Controls
 
