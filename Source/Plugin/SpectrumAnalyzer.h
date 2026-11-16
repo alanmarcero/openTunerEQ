@@ -37,8 +37,10 @@ public:
     explicit SpectrumAnalyzer(SpectrumCapture& source) : capture(source) {}
     bool update(double nowSeconds, bool afterEQ = false);
     void reset();
-    float levelAt(double hz) const;
-    float levelInRange(double lowHz, double highHz) const;
+    void setFrozen(bool value) noexcept { frozen = value; }
+    void setReleaseDbPerSecond(float value) noexcept;
+    float levelAt(double hz, float tiltDbPerOctave = 0.0f) const;
+    float levelInRange(double lowHz, double highHz, float tiltDbPerOctave = 0.0f) const;
 private:
     SpectrumCapture& capture;
     std::unique_ptr<juce::dsp::FFT> fft;
@@ -48,5 +50,7 @@ private:
     int position = 0, collected = 0;
     unsigned stream = 0, view = 0;
     bool afterEQ = false;
+    bool frozen = false;
+    float releaseDbPerSecond = 48.0f;
     void configure(const SpectrumCapture::Packet&);
 };

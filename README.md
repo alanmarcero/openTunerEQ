@@ -8,7 +8,7 @@ A five-band parametric EQ. Every band shows its note, octave, and frequency. Sna
 
 ![openTunerEQ native editor](assets/native-ui.png)
 
-*The v1.2.2 editor: cyan shows the track’s live audio spectrum; white shows the EQ response. [Capture details](docs/SCREENSHOTS.md).*
+*The native editor with the live spectrum analyzer. [Capture details](docs/SCREENSHOTS.md).*
 
 ## Controls
 
@@ -18,8 +18,8 @@ A five-band parametric EQ. Every band shows its note, octave, and frequency. Sna
 - **Sharp / flat spelling:** C# and Db represent the same pitch. The Flats button changes labels without changing the sound.
 - **Free tuning:** disable Snap; each band still shows its nearest note and cents offset. The large Hz readout always shows the effective filter frequency.
 - **Response graph:** drag numbered nodes for frequency and gain; scroll for Q; double-click a node to bypass that band. Colors link nodes to controls. The white line is the total response, including output trim.
-- **Live visualizer:** on by default behind the EQ graph. Switch between **Spectrum** (detailed peaks), **Bars** (narrow frequency regions), and **Spectrogram** (about five seconds of frequency history, newest at the top and louder content brighter). All three share the EQ's logarithmic 20 Hz–20 kHz axis. The Visualizer button turns analysis off; the button, source and style are saved with your session. Older sessions start with the visualizer on.
-- **Find a frequency:** hover over the graph for Hz, nearest note, and selected audio level; **Alt/Option-click** to move the selected EQ band there without changing its gain. Note snapping still applies; turn Snap off for exact Hz placement. Use **Before EQ / After EQ** to switch between the incoming track and the processed output (including output trim and bypass). The analyzer combines channel magnitudes so opposite-polarity stereo remains visible. Switching source clears the previous spectrum/history so the two signals do not mix. Before EQ is the default for new and older sessions. Spectrum/Bars use the right-hand −90 to 0 dBFS scale; the left-hand ±24 dB scale belongs to the EQ response. Spectrogram height represents time, with level shown by color. The analyzer does not change audio or add latency, and stops analyzing when the editor is closed.
+- **Live visualizer:** on by default behind the EQ graph. Switch between **Spectrum** (detailed peaks), **Bars** (narrow frequency regions), and **Spectrogram** (about five seconds of frequency history, newest at the top and louder content brighter). **Freeze** holds measured peaks; **Slow / Medium / Fast** sets release from 24 to 96 dB per second; **Tilt** applies 0–6 dB per octave around 1 kHz. All three views share the EQ's logarithmic 20 Hz–20 kHz axis. The controls, source and style are saved with your session. Older sessions use Freeze off, Medium release and the 4.5 dB/oct tilt.
+- **Find a frequency:** hover over the graph for Hz, nearest note, and selected audio level; **Alt/Option-click** to move the selected EQ band there without changing its gain. Note snapping still applies; turn Snap off for exact Hz placement. Use **Before EQ / After EQ** to switch between the incoming track and the processed output (including output trim and bypass). The analyzer combines channel magnitudes so opposite-polarity stereo remains visible. Switching source clears the previous spectrum/history so the two signals do not mix. Before EQ is the default for new and older sessions. Spectrum/Bars use the right-hand −90 to 0 dBFS scale; tilt changes the displayed level relative to 1 kHz. The left-hand ±24 dB scale belongs to the EQ response. Spectrogram height represents time, with level shown by color. The analyzer does not change audio or add latency, and stops analyzing when the editor is closed.
 - **Output / Bypass:** −24 to +12 dB output trim. Global bypass also bypasses output trim. Watch the output meter when boosting several bands.
 
 | Shape | Gain | Q | Slope |
@@ -73,6 +73,8 @@ ctest --test-dir build-core --output-on-failure
 Every push and pull request runs Linux DSP tests with address/undefined-behavior sanitizers, macOS universal and Windows x64 builds, audio/state/UI tests, and [pluginval](https://github.com/Tracktion/pluginval) at strictness level 5. Passing platform jobs upload ZIPs. Pushing a `v*` tag publishes a release after all jobs pass.
 
 `Source/Core` contains the dependency-free DSP and tuning math. `Source/Plugin` contains the JUCE parameter, host, and UI integration. Bell, pass and notch sections use Vicanek's matched second-order design ("Matched Second Order Digital Filters", 2016), so they keep their analog shape up to Nyquist. Shelves follow the [W3C Audio EQ Cookbook](https://www.w3.org/TR/audio-eq-cookbook/). Build structure follows [openMaster](https://github.com/alanmarcero/openMaster) and [openEDMFilter](https://github.com/alanmarcero/openEDMFilter).
+
+The analyzer's freeze, release-speed and tilt controls follow workflow ideas documented in [FabFilter Pro-Q 4's spectrum analyzer help](https://www.fabfilter.com/help/pro-q/using/analyzer). They affect only the editor display; the EQ audio path and its latency are unchanged. See [commercial research notes](docs/COMMERCIAL_RESEARCH.md).
 
 The graphite faceplate and metal tuning-fork emblem are generated raster assets embedded in the plugin. Prompts and provenance: [docs/assets.md](docs/assets.md). The screenshot above is captured from the released VST3 editor; its provenance is linked below the image.
 

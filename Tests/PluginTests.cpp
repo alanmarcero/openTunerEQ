@@ -60,9 +60,15 @@ int main(int argc, char** argv) {
     require(analyzerEnabled != nullptr && analyzerEnabled->load() == 1.0f, "live analyzer is available and on by default");
     auto* analyzerSource = processor.state.getRawParameterValue("analyzerSource");
     require(analyzerSource != nullptr && analyzerSource->load() == 0.0f, "live audio source defaults to before EQ");
+    require(processor.state.getRawParameterValue("analyzerFreeze") != nullptr, "spectrum freeze parameter is registered");
+    require(processor.state.getRawParameterValue("analyzerRelease") != nullptr, "spectrum release parameter is registered");
+    require(processor.state.getRawParameterValue("analyzerTilt") != nullptr, "spectrum tilt parameter is registered");
     processor.setParameter("analyzerEnabled", 0);
     processor.setParameter("analyzerStyle", 2);
     processor.setParameter("analyzerSource", 1);
+    processor.setParameter("analyzerFreeze", 1);
+    processor.setParameter("analyzerRelease", 2);
+    processor.setParameter("analyzerTilt", 3);
     juce::MemoryBlock analyzerState;
     processor.getStateInformation(analyzerState);
     TunerProcessor analyzerRestored;
@@ -70,10 +76,13 @@ int main(int argc, char** argv) {
     require(analyzerRestored.state.getRawParameterValue("analyzerEnabled")->load() == 0.0f, "analyzer off survives session recall");
     require(analyzerRestored.state.getRawParameterValue("analyzerStyle")->load() == 2.0f, "analyzer style survives session recall");
     require(analyzerRestored.state.getRawParameterValue("analyzerSource")->load() == 1.0f, "after-EQ source survives session recall");
+    require(analyzerRestored.state.getRawParameterValue("analyzerFreeze")->load() == 1.0f, "spectrum freeze survives session recall");
+    require(analyzerRestored.state.getRawParameterValue("analyzerRelease")->load() == 2.0f, "spectrum release survives session recall");
+    require(analyzerRestored.state.getRawParameterValue("analyzerTilt")->load() == 3.0f, "spectrum tilt survives session recall");
     auto legacy = processor.state.copyState();
     for (int i = legacy.getNumChildren(); --i >= 0;) {
         const auto id = legacy.getChild(i).getProperty("id").toString();
-        if (id == "analyzerEnabled" || id == "analyzerStyle" || id == "analyzerSource") legacy.removeChild(i, nullptr);
+        if (id == "analyzerEnabled" || id == "analyzerStyle" || id == "analyzerSource" || id == "analyzerFreeze" || id == "analyzerRelease" || id == "analyzerTilt") legacy.removeChild(i, nullptr);
     }
     juce::MemoryBlock legacyState;
     juce::AudioProcessor::copyXmlToBinary(*legacy.createXml(), legacyState);
@@ -81,6 +90,10 @@ int main(int argc, char** argv) {
     require(analyzerRestored.state.getRawParameterValue("analyzerEnabled")->load() == 1.0f, "old sessions enable the new visualizer");
     require(analyzerRestored.state.getRawParameterValue("analyzerStyle")->load() == 0.0f, "old sessions use spectrum style");
     require(analyzerRestored.state.getRawParameterValue("analyzerSource")->load() == 0.0f, "old sessions use before-EQ audio");
+    require(analyzerRestored.state.getRawParameterValue("analyzerFreeze")->load() == 0.0f, "old sessions leave spectrum freeze off");
+    require(analyzerRestored.state.getRawParameterValue("analyzerRelease")->load() == 1.0f, "old sessions use the medium spectrum release");
+    require(analyzerRestored.state.getRawParameterValue("analyzerTilt")->load() == 2.0f, "old sessions use the natural spectrum tilt");
+    processor.setParameter("analyzerFreeze", 0);
     processor.setParameter("analyzerEnabled", 1);
     processor.setParameter("analyzerSource", 0);
     {
@@ -185,9 +198,23 @@ int main(int argc, char** argv) {
     auto* visualizer = dynamic_cast<juce::TextButton*>(find(find, *editor, "analyzerEnabled"));
     auto* visualizerStyle = dynamic_cast<juce::ComboBox*>(find(find, *editor, "analyzerStyle"));
     auto* visualizerSource = dynamic_cast<juce::ComboBox*>(find(find, *editor, "analyzerSource"));
+    auto* freezeToggle = dynamic_cast<juce::TextButton*>(find(find, *editor, "analyzerFreeze"));
+    auto* visualizerRelease = dynamic_cast<juce::ComboBox*>(find(find, *editor, "analyzerRelease"));
+    auto* visualizerTilt = dynamic_cast<juce::ComboBox*>(find(find, *editor, "analyzerTilt"));
     require(visualizer != nullptr && visualizer->getToggleState(), "visualizer starts on in the actual editor");
     require(visualizerStyle != nullptr, "visualizer style selector present");
     require(visualizerSource != nullptr && visualizerSource->getSelectedId() == 1, "before-EQ audio source shown in the editor");
+    require(freezeToggle != nullptr && visualizerRelease != nullptr && visualizerTilt != nullptr,
+            "freeze, release speed, and tilt controls appear in the native editor");
+    freezeToggle->setToggleState(true, juce::sendNotificationSync);
+    visualizerRelease->setSelectedId(3, juce::sendNotificationSync);
+    visualizerTilt->setSelectedId(4, juce::sendNotificationSync);
+    require(processor.state.getRawParameterValue("analyzerFreeze")->load() == 1.0f, "freeze toggle reaches session state");
+    require(processor.state.getRawParameterValue("analyzerRelease")->load() == 2.0f, "release selector reaches session state");
+    require(processor.state.getRawParameterValue("analyzerTilt")->load() == 3.0f, "tilt selector reaches session state");
+    freezeToggle->setToggleState(false, juce::sendNotificationSync);
+    visualizerRelease->setSelectedId(2, juce::sendNotificationSync);
+    visualizerTilt->setSelectedId(3, juce::sendNotificationSync);
     visualizerSource->setSelectedId(2, juce::sendNotificationSync);
     require(processor.state.getRawParameterValue("analyzerSource")->load() == 1, "after-EQ selection reaches audio source parameter");
     visualizerStyle->setSelectedId(3, juce::sendNotificationSync);
@@ -196,6 +223,7 @@ int main(int argc, char** argv) {
     graph->refresh();
     require(processor.state.getRawParameterValue("analyzerEnabled")->load() == 0 && !visualizerStyle->isEnabled(), "visualizer toggle disables analysis and style selection");
     require(!visualizerSource->isEnabled(), "visualizer toggle disables audio source selection");
+    require(!freezeToggle->isEnabled() && !visualizerRelease->isEnabled() && !visualizerTilt->isEnabled(), "visualizer toggle disables analyzer-only controls");
     visualizer->setToggleState(true, juce::sendNotificationSync);
     visualizerStyle->setSelectedId(1, juce::sendNotificationSync);
     visualizerSource->setSelectedId(1, juce::sendNotificationSync);
@@ -231,6 +259,9 @@ int main(int argc, char** argv) {
     require(listener.ends == 1, "closing editor ends active host gesture");
     frequencyParameter->removeListener(&listener);
     if (argc > 1) {
+        processor.setParameter("analyzerFreeze", 1);
+        processor.setParameter("analyzerRelease", 2);
+        processor.setParameter("analyzerTilt", 3);
         processor.setParameter("snap", 1);
         processor.setParameter("band0.freq", 65.4064f); processor.setParameter("band0.gain", 3.5f);
         processor.setParameter("band1.freq", 261.6256f); processor.setParameter("band1.gain", -12.0f);

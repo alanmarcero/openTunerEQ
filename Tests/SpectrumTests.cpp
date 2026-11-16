@@ -107,5 +107,61 @@ int main() {
         }
         require(analyzer.levelAt(1000) > -8, "small host buffers at 192 kHz keep up with a 24 Hz editor");
     }
+    SpectrumCapture tiltCapture;
+    SpectrumAnalyzer tiltAnalyzer(tiltCapture);
+    juce::AudioBuffer<float> tiltSignal(2, 256);
+    tiltCapture.prepare(48000); tiltCapture.setActive(true);
+    for (int block = 0; block < 80; ++block) {
+        for (int i = 0; i < 256; ++i) {
+            const auto sample = static_cast<float>(0.25 * std::sin(2 * juce::MathConstants<double>::pi * 500 * (block * 256 + i) / 48000)
+                                                   + 0.25 * std::sin(2 * juce::MathConstants<double>::pi * 2000 * (block * 256 + i) / 48000));
+            tiltSignal.setSample(0, i, sample); tiltSignal.setSample(1, i, sample);
+        }
+        tiltCapture.push(tiltSignal, true);
+        tiltAnalyzer.update((block + 1) * 256.0 / 48000);
+    }
+    require(tiltAnalyzer.levelAt(500) > -20 && tiltAnalyzer.levelAt(2000) > -20, "tilt test has measured low and high peaks");
+    require(std::abs(tiltAnalyzer.levelAt(2000, 3.0f) - tiltAnalyzer.levelAt(2000) - 3.0f) < 0.01f,
+            "spectrum tilt is centered at 1 kHz and adds dB per octave");
+    require(std::abs(tiltAnalyzer.levelAt(500, 3.0f) - tiltAnalyzer.levelAt(500) + 3.0f) < 0.01f,
+            "spectrum tilt subtracts dB below 1 kHz");
+
+    auto prepareSignal = [](SpectrumCapture& source, SpectrumAnalyzer& view, juce::AudioBuffer<float>& signal,
+                            double& clock, float releaseDbPerSecond, bool freeze) {
+        source.prepare(48000);
+        source.setActive(true);
+        signal.setSize(2, 256);
+        view.setReleaseDbPerSecond(releaseDbPerSecond);
+        view.setFrozen(freeze);
+        for (int block = 0; block < 80; ++block) {
+            for (int i = 0; i < 256; ++i) {
+                const auto sample = static_cast<float>(0.5 * std::sin(2 * juce::MathConstants<double>::pi * 1000 * (block * 256 + i) / 48000));
+                signal.setSample(0, i, sample); signal.setSample(1, i, sample);
+            }
+            source.push(signal, true); clock += 256.0 / 48000; view.update(clock);
+        }
+    };
+    auto feedSilence = [](SpectrumCapture& source, SpectrumAnalyzer& view, juce::AudioBuffer<float>& signal,
+                          double& clock, int blocks) {
+        signal.clear();
+        for (int block = 0; block < blocks; ++block) {
+            source.push(signal, true); clock += 256.0 / 48000; view.update(clock);
+        }
+    };
+    SpectrumCapture frozenCapture, slowCapture, fastCapture;
+    SpectrumAnalyzer frozen(frozenCapture), slow(slowCapture), fast(fastCapture);
+    juce::AudioBuffer<float> frozenSignal(2, 256), slowSignal(2, 256), fastSignal(2, 256);
+    double frozenClock = 0, slowClock = 0, fastClock = 0;
+    prepareSignal(frozenCapture, frozen, frozenSignal, frozenClock, 48.0f, true);
+    prepareSignal(slowCapture, slow, slowSignal, slowClock, 24.0f, false);
+    prepareSignal(fastCapture, fast, fastSignal, fastClock, 96.0f, false);
+    const auto frozenPeak = frozen.levelAt(1000);
+    require(frozenPeak > -8 && slow.levelAt(1000) > -8 && fast.levelAt(1000) > -8,
+            "freeze and release modes begin from a live peak");
+    feedSilence(frozenCapture, frozen, frozenSignal, frozenClock, 94);
+    feedSilence(slowCapture, slow, slowSignal, slowClock, 94);
+    feedSilence(fastCapture, fast, fastSignal, fastClock, 94);
+    require(frozen.levelAt(1000) >= frozenPeak - 0.1f, "frozen spectrum holds its peak while new audio arrives");
+    require(fast.levelAt(1000) < slow.levelAt(1000) - 20.0f, "faster analyzer release decays held peaks faster");
     std::cout << "PASS: spectrum calibration, sample rates, stereo, mono, silence, gating, overflow\n";
 }
