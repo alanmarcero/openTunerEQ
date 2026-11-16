@@ -11,26 +11,53 @@ ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spect
     analyzerSource.setComponentID("analyzerSource");
     analyzerSource.addItemList({"Before EQ", "After EQ"}, 1);
     analyzerSource.setTooltip("Before EQ: the incoming track. After EQ: the processed track, including output gain and bypass.");
-    addAndMakeVisible(analyzerToggle); addAndMakeVisible(analyzerStyle); addAndMakeVisible(analyzerSource);
+    freezeToggle.setComponentID("analyzerFreeze");
+    freezeToggle.setClickingTogglesState(true);
+    freezeToggle.setTooltip("Hold the highest measured spectrum level until Freeze is turned off.");
+    analyzerRelease.setComponentID("analyzerRelease");
+    analyzerRelease.addItemList({"Slow 24", "Medium 48", "Fast 96"}, 1);
+    analyzerRelease.setTooltip("Peak decay speed in dB per second.");
+    analyzerTilt.setComponentID("analyzerTilt");
+    analyzerTilt.addItemList({"0 dB/oct", "3 dB/oct", "4.5 dB/oct", "6 dB/oct"}, 1);
+    analyzerTilt.setTooltip("Tilt the spectrum around 1 kHz to make low-frequency balance easier to read.");
+    addAndMakeVisible(analyzerToggle); addAndMakeVisible(freezeToggle); addAndMakeVisible(analyzerRelease);
+    addAndMakeVisible(analyzerTilt); addAndMakeVisible(analyzerStyle); addAndMakeVisible(analyzerSource);
     analyzerAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "analyzerEnabled", analyzerToggle);
+    freezeAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "analyzerFreeze", freezeToggle);
     styleAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, "analyzerStyle", analyzerStyle);
     sourceAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, "analyzerSource", analyzerSource);
+    releaseAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, "analyzerRelease", analyzerRelease);
+    tiltAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, "analyzerTilt", analyzerTilt);
     refresh();
 }
 ResponseGraph::~ResponseGraph() { processor.spectrum.setActive(false); endGesture(); }
 void ResponseGraph::resized() {
-    analyzerToggle.setBounds(getWidth() - 400, 5, 100, 25);
-    analyzerSource.setBounds(getWidth() - 292, 5, 128, 25);
-    analyzerStyle.setBounds(getWidth() - 156, 5, 140, 25);
+    freezeToggle.setBounds(getWidth() - 635, 5, 60, 25);
+    analyzerRelease.setBounds(getWidth() - 569, 5, 90, 25);
+    analyzerTilt.setBounds(getWidth() - 473, 5, 78, 25);
+    analyzerToggle.setBounds(getWidth() - 391, 5, 100, 25);
+    analyzerSource.setBounds(getWidth() - 283, 5, 128, 25);
+    analyzerStyle.setBounds(getWidth() - 147, 5, 140, 25);
 }
 void ResponseGraph::refresh() {
     const auto enabled = processor.state.getRawParameterValue("analyzerEnabled")->load() > 0.5f;
     const auto nextStyle = juce::jlimit(0, 2, static_cast<int>(processor.state.getRawParameterValue("analyzerStyle")->load()));
     const auto nextAfterEQ = processor.state.getRawParameterValue("analyzerSource")->load() > 0.5f;
+    analyzerFrozen = processor.state.getRawParameterValue("analyzerFreeze")->load() > 0.5f;
+    const auto releaseIndex = juce::jlimit(0, 2, static_cast<int>(processor.state.getRawParameterValue("analyzerRelease")->load()));
+    const auto tiltIndex = juce::jlimit(0, 3, static_cast<int>(processor.state.getRawParameterValue("analyzerTilt")->load()));
+    constexpr std::array<float, 3> releaseRates {24.0f, 48.0f, 96.0f};
+    constexpr std::array<float, 4> tiltAmounts {0.0f, 3.0f, 4.5f, 6.0f};
+    tiltDbPerOctave = tiltAmounts[static_cast<size_t>(tiltIndex)];
     if (enabled != analyzerOn || nextStyle != style || nextAfterEQ != afterEQ) history.clear(history.getBounds());
     analyzerOn = enabled; style = nextStyle; afterEQ = nextAfterEQ;
+    analyzer.setFrozen(analyzerFrozen);
+    analyzer.setReleaseDbPerSecond(releaseRates[static_cast<size_t>(releaseIndex)]);
     analyzerStyle.setEnabled(enabled);
     analyzerSource.setEnabled(enabled);
+    freezeToggle.setEnabled(enabled);
+    analyzerRelease.setEnabled(enabled);
+    analyzerTilt.setEnabled(enabled);
     processor.spectrum.setActive(enabled);
     if (enabled) analyzer.update(juce::Time::getMillisecondCounterHiRes() * 0.001, afterEQ);
     else {
@@ -42,7 +69,7 @@ void ResponseGraph::refresh() {
         history.moveImageSection(0, 1, 0, 0, 512, 127);
         juce::Image::BitmapData pixels(history, juce::Image::BitmapData::writeOnly);
         for (int x = 0; x < 512; ++x) {
-            const auto db = analyzer.levelInRange(20 * std::pow(1000.0, x / 512.0), 20 * std::pow(1000.0, (x + 1) / 512.0));
+            const auto db = analyzer.levelInRange(20 * std::pow(1000.0, x / 512.0), 20 * std::pow(1000.0, (x + 1) / 512.0), tiltDbPerOctave);
             const auto strength = juce::jlimit(0.0f, 1.0f, (db + 90) / 90);
             const auto colour = strength < 0.6f
                 ? juce::Colour(0xff0e151b).interpolatedWith(juce::Colour(0xff3e9caa), strength / 0.6f)
@@ -66,11 +93,11 @@ void ResponseGraph::paint(juce::Graphics& g) {
     g.setColour(juce::Colour(0xff0e151b).withAlpha(0.97f)); g.fillRoundedRectangle(area, 9);
     g.setColour(ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(area.reduced(0.5f), 9, 1);
     ui::text(g, "Live audio + EQ", {18, 8, 180, 20}, 13, ui::ink, juce::Justification::centredLeft, true);
-    juce::String caption = analyzerOn ? (style == 2 ? "Audio history: newest at top / White: EQ response" : "Cyan: track audio (dBFS) / White: EQ response") : "Drag a band / Scroll for Q / Double-click to bypass";
+    juce::String caption = analyzerOn ? (style == 2 ? "Audio history (tilted): newest at top / White: EQ response" : "Cyan: tilted audio spectrum / White: EQ response") : "Drag a band / Scroll for Q / Double-click to bypass";
     if (hoverX >= 0) {
         const auto hz = frequencyAt(hoverX);
         caption = juce::String(hz, 1) + " Hz / " + ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats());
-        if (analyzerOn) caption += " / " + juce::String(analyzer.levelAt(hz), 1) + (afterEQ ? " dBFS after EQ" : " dBFS before EQ");
+        if (analyzerOn) caption += " / " + juce::String(analyzer.levelAt(hz, tiltDbPerOctave), 1) + (afterEQ ? " dB tilted after EQ" : " dB tilted before EQ");
         caption += " / Alt-click to tune";
     }
     ui::text(g, caption, {206, 8, area.getWidth() - 620, 20}, 11, ui::muted);
@@ -148,7 +175,7 @@ void ResponseGraph::paintSpectrum(juce::Graphics& g) {
     for (int i = 0; i < columns; ++i) {
         const auto low = 20 * std::pow(1000.0, static_cast<double>(i) / columns);
         const auto high = 20 * std::pow(1000.0, static_cast<double>(i + 1) / columns);
-        const auto top = y(analyzer.levelInRange(low, high));
+        const auto top = y(analyzer.levelInRange(low, high, tiltDbPerOctave));
         const auto x = p.getX() + p.getWidth() * (i + 0.5f) / columns;
         if (style == 1) {
             g.setColour(colour.withAlpha(0.32f));

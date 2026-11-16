@@ -1,4 +1,6 @@
 #include "SpectrumAnalyzer.h"
+#include <algorithm>
+#include <cmath>
 
 void SpectrumCapture::push(const juce::AudioBuffer<float>& audio, bool enabled, bool afterEQ) noexcept {
     const auto current = view.load();
@@ -47,6 +49,9 @@ void SpectrumAnalyzer::reset() {
     position = 0; collected = 0;
     std::fill(levels.begin(), levels.end(), floorDb);
 }
+void SpectrumAnalyzer::setReleaseDbPerSecond(float value) noexcept {
+    releaseDbPerSecond = std::isfinite(value) ? std::clamp(value, 6.0f, 120.0f) : 48.0f;
+}
 bool SpectrumAnalyzer::update(double now, bool useAfterEQ) {
     if (afterEQ != useAfterEQ) { reset(); afterEQ = useAfterEQ; }
     SpectrumCapture::Packet packet;
@@ -68,7 +73,7 @@ bool SpectrumAnalyzer::update(double now, bool useAfterEQ) {
     const auto elapsed = juce::jlimit(0.0, 0.25, now - lastUpdate);
     lastUpdate = now;
     if (!received) {
-        if (now - lastInput > 0.25) reset();
+        if (!frozen && now - lastInput > 0.25) reset();
         return false;
     }
     lastInput = now;
@@ -84,22 +89,30 @@ bool SpectrumAnalyzer::update(double now, bool useAfterEQ) {
     for (size_t i = 0; i < levels.size(); ++i) {
         const auto amplitude = std::max(transformLeft[i], transformRight[i]) * normalization;
         const auto db = juce::Decibels::gainToDecibels(amplitude, floorDb);
-        levels[i] = std::max(db, levels[i] - static_cast<float>(elapsed * 48));
+        levels[i] = std::max(db, frozen ? levels[i] : levels[i] - static_cast<float>(elapsed * releaseDbPerSecond));
     }
     return true;
 }
-float SpectrumAnalyzer::levelAt(double hz) const {
+float SpectrumAnalyzer::levelAt(double hz, float tiltDbPerOctave) const {
     if (!fft || collected < fft->getSize() || hz < 20 || hz >= sampleRate * 0.5) return floorDb;
     const auto bin = hz * fft->getSize() / sampleRate;
     const auto index = static_cast<size_t>(bin);
     const auto fraction = static_cast<float>(bin - index);
-    return levels[index] + fraction * (levels[index + 1] - levels[index]);
+    const auto level = levels[index] + fraction * (levels[index + 1] - levels[index]);
+    if (level <= floorDb || !std::isfinite(tiltDbPerOctave)) return level;
+    return level + std::clamp(tiltDbPerOctave, -12.0f, 12.0f) * static_cast<float>(std::log2(hz / 1000.0));
 }
-float SpectrumAnalyzer::levelInRange(double low, double high) const {
-    auto result = levelAt(std::sqrt(low * high));
+float SpectrumAnalyzer::levelInRange(double low, double high, float tiltDbPerOctave) const {
+    auto result = levelAt(std::sqrt(low * high), tiltDbPerOctave);
     if (!fft || collected < fft->getSize()) return result;
     const int first = std::max(1, static_cast<int>(std::ceil(low * fft->getSize() / sampleRate)));
     const int last = std::min(fft->getSize() / 2 - 1, static_cast<int>(std::floor(high * fft->getSize() / sampleRate)));
-    for (int i = first; i <= last; ++i) result = std::max(result, levels[static_cast<size_t>(i)]);
+    for (int i = first; i <= last; ++i) {
+        const auto level = levels[static_cast<size_t>(i)];
+        if (level <= floorDb || !std::isfinite(tiltDbPerOctave)) continue;
+        const auto hz = static_cast<double>(i) * sampleRate / fft->getSize();
+        result = std::max(result, level + std::clamp(tiltDbPerOctave, -12.0f, 12.0f)
+                                          * static_cast<float>(std::log2(hz / 1000.0)));
+    }
     return result;
 }
