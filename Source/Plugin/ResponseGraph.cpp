@@ -32,12 +32,12 @@ ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spect
 }
 ResponseGraph::~ResponseGraph() { processor.spectrum.setActive(false); endGesture(); }
 void ResponseGraph::resized() {
-    freezeToggle.setBounds(getWidth() - 635, 5, 60, 25);
-    analyzerRelease.setBounds(getWidth() - 569, 5, 90, 25);
-    analyzerTilt.setBounds(getWidth() - 473, 5, 78, 25);
-    analyzerToggle.setBounds(getWidth() - 391, 5, 100, 25);
-    analyzerSource.setBounds(getWidth() - 283, 5, 128, 25);
-    analyzerStyle.setBounds(getWidth() - 147, 5, 140, 25);
+    freezeToggle.setBounds(getWidth() - 635, 3, 60, 36);
+    analyzerRelease.setBounds(getWidth() - 569, 3, 90, 36);
+    analyzerTilt.setBounds(getWidth() - 473, 3, 78, 36);
+    analyzerToggle.setBounds(getWidth() - 391, 3, 100, 36);
+    analyzerSource.setBounds(getWidth() - 283, 3, 128, 36);
+    analyzerStyle.setBounds(getWidth() - 147, 3, 140, 36);
 }
 void ResponseGraph::refresh() {
     const auto enabled = processor.state.getRawParameterValue("analyzerEnabled")->load() > 0.5f;
@@ -79,7 +79,7 @@ void ResponseGraph::refresh() {
     }
     repaint();
 }
-juce::Rectangle<float> ResponseGraph::plot() const { return getLocalBounds().toFloat().withTrimmedLeft(48).withTrimmedRight(48).withTrimmedTop(36).withTrimmedBottom(32); }
+juce::Rectangle<float> ResponseGraph::plot() const { return getLocalBounds().toFloat().withTrimmedLeft(48).withTrimmedRight(48).withTrimmedTop(44).withTrimmedBottom(32); }
 double ResponseGraph::frequencyAt(float x) const { const auto p = plot(); return 20 * std::pow(1000.0, juce::jlimit(0.0f, 1.0f, (x - p.getX()) / p.getWidth())); }
 float ResponseGraph::xFor(double hz) const { const auto p = plot(); return p.getX() + static_cast<float>(std::log(hz / 20.0) / std::log(1000.0)) * p.getWidth(); }
 float ResponseGraph::yFor(double db) const { auto p = plot(); return p.getCentreY() - static_cast<float>(std::clamp(db, -25.0, 25.0)) / 48.0f * p.getHeight(); }
@@ -160,7 +160,7 @@ void ResponseGraph::paint(juce::Graphics& g) {
 }
 void ResponseGraph::paintSpectrum(juce::Graphics& g) {
     const auto p = plot();
-    const auto colour = juce::Colour(0xff60b5c3);
+    const auto colour = juce::Colour(0xff48f0c8);
     auto y = [&](float db) { return p.getBottom() - juce::jlimit(0.0f, 1.0f, (db + 90) / 90) * p.getHeight(); };
     if (style == 2) {
         g.setOpacity(0.6f); g.drawImage(history, p); g.setOpacity(1.0f);

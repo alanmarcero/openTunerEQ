@@ -6,7 +6,7 @@
 
 A five-band parametric EQ. Every band shows its note, octave, and frequency. Snap to a semitone, choose a note directly, or tune in Hz.
 
-![openTunerEQ native editor](assets/native-ui.png)
+![openTunerEQ native editor with graphite surfaces, mint focus, and amber controls (v1.5.1)](assets/native-ui.png)
 
 *The native editor with the live spectrum analyzer. [Capture details](docs/SCREENSHOTS.md).*
 

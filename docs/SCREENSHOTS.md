@@ -1,10 +1,10 @@
 # Native UI screenshots
 
-Before EQ: cyan shows the incoming track’s audio spectrum, and white shows the EQ response.
+Before EQ: mint shows the incoming track’s audio spectrum, and white shows the EQ response.
 
 ![Before EQ audio spectrum](../assets/native-ui.png)
 
-After EQ: the same input signal and EQ settings, with cyan now showing the processed output.
+After EQ: the same input signal and EQ settings, with mint now showing the processed output.
 
 ![After EQ audio spectrum](../assets/native-ui-after.png)
 
