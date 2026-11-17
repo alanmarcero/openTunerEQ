@@ -1,81 +1,32 @@
 # openTunerEQ
 
-[Install with OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/releases/latest)
+A five-band equalizer with note-aware controls and a live spectrum display.
 
-[![Build and validate](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml/badge.svg)](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml)
+![openTunerEQ equalizer and analyzer](assets/native-ui.png)
 
-A five-band parametric EQ. Every band shows its note, octave, and frequency. Snap to a semitone, choose a note directly, or tune in Hz.
+[Download the latest release](https://github.com/alanmarcero/openTunerEQ/releases/latest) · [Install with OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/releases/latest)
 
-![openTunerEQ native editor with graphite surfaces, mint focus, and amber controls (v1.5.1)](assets/native-ui.png)
+## Equalizer
 
-*The native editor with the live spectrum analyzer. [Capture details](docs/SCREENSHOTS.md).*
+Each band has its own enable switch, frequency, gain, Q, and filter shape. Choose Bell, Low shelf, High shelf, High pass, Low pass, Notch, or Band pass. Frequency covers 20 Hz to 20 kHz, with a lower maximum at low sample rates. Gain covers ±24 dB, and Q covers 0.1 to 18. High-pass and low-pass slopes are 12, 24, 48, or 96 dB per octave.
 
-## Controls
+Turn on **Snap to notes** to tune bands to semitones, including host automation. Set the A4 reference from 400 to 480 Hz to match your tuning. Choose a note and octave, or step one semitone at a time. Display notes as sharps or flats. Turn snapping off for free tuning; the display still shows the nearest note and cents.
 
-- **Five bands:** individual enable, shape, frequency, gain and Q. All audio parameters support host automation and session recall.
-- **Snap to notes:** on by default; applies to knobs, graph dragging and host automation. Uses 12-tone equal temperament from the **A4 reference** (400–480 Hz, default 440 Hz), so you can match material tuned to 432 or 442 Hz. Changing the reference moves every snapped band to the new grid. This is chromatic note snapping, not pitch detection or song-scale detection.
-- **Note + octave selectors:** jump straight to a pitch. The − / + buttons step one semitone; the piano strip and octave buttons act on the selected band.
-- **Sharp / flat spelling:** C# and Db represent the same pitch. The Flats button changes labels without changing the sound.
-- **Free tuning:** disable Snap; each band still shows its nearest note and cents offset. The large Hz readout always shows the effective filter frequency.
-- **Response graph:** drag numbered nodes for frequency and gain; scroll for Q; double-click a node to bypass that band. Colors link nodes to controls. The white line is the total response, including output trim.
-- **Live visualizer:** on by default behind the EQ graph. Switch between **Spectrum** (detailed peaks), **Bars** (narrow frequency regions), and **Spectrogram** (about five seconds of frequency history, newest at the top and louder content brighter). **Freeze** holds measured peaks; **Slow / Medium / Fast** sets release from 24 to 96 dB per second; **Tilt** applies 0–6 dB per octave around 1 kHz. All three views share the EQ's logarithmic 20 Hz–20 kHz axis. The controls, source and style are saved with your session. Older sessions use Freeze off, Medium release and the 4.5 dB/oct tilt.
-- **Find a frequency:** hover over the graph for Hz, nearest note, and selected audio level; **Alt/Option-click** to move the selected EQ band there without changing its gain. Note snapping still applies; turn Snap off for exact Hz placement. Use **Before EQ / After EQ** to switch between the incoming track and the processed output (including output trim and bypass). The analyzer combines channel magnitudes so opposite-polarity stereo remains visible. Switching source clears the previous spectrum/history so the two signals do not mix. Before EQ is the default for new and older sessions. Spectrum/Bars use the right-hand −90 to 0 dBFS scale; tilt changes the displayed level relative to 1 kHz. The left-hand ±24 dB scale belongs to the EQ response. Spectrogram height represents time, with level shown by color. The analyzer does not change audio or add latency, and stops analyzing when the editor is closed.
-- **Output / Bypass:** −24 to +12 dB output trim. Global bypass also bypasses output trim. Watch the output meter when boosting several bands.
+Drag a band on the graph to change frequency and gain. Scroll over it to change Q. Double-click a band to bypass it. Hover to read frequency and note. With the analyzer on, the graph also shows audio level. Alt/Option-click to move the selected band to that frequency; turn snapping off for exact placement.
 
-| Shape | Gain | Q | Slope |
-|---|---|---|---|
-| Bell | ±24 dB | 0.1–18 | — |
-| Low / high shelf | ±24 dB | Fixed, monotonic | — |
-| High / low pass | — | 0.1–18 at 12 dB/oct | 12, 24, 48, 96 dB/oct |
-| Notch | — | 0.1–18 | — |
-| Band pass | — | 0.1–18 | — |
+## Spectrum display
 
-Unused controls are dimmed. For cuts, **12 dB/oct is soft; 96 dB/oct is steep**. These describe roll-off per octave, not a fixed attenuation amount or an ideal brick wall. Higher-order cuts use a Butterworth alignment with a −3 dB cutoff. Use shelf gain when you want a finite low/high cut such as −6 or −12 dB.
+Choose Spectrum, Bars, or Spectrogram. View audio before or after the EQ, freeze peaks, set Slow, Medium, or Fast falloff, and tilt the spectrum by 0, 3, 4.5, or 6 dB per octave. The editor saves these display settings with your session.
 
-Frequency range is 20–20,000 Hz, limited below Nyquist at lower sample rates. Note snapping selects only pitches inside that range (at A4 = 440 Hz: E0 ≈ 20.60 Hz to D#10/Eb10 ≈ 19,912.13 Hz). Octave selectors support the entire range. Mono and stereo instances are supported. The EQ is minimum phase, with no lookahead or reported latency; parameter smoothing and short bypass/topology fades reduce switching clicks.
+Output trim ranges from −24 to +12 dB. Global bypass includes output trim. The EQ supports mono and stereo and adds no latency.
 
-## Downloads and installation
+## Formats
 
-1. Download and install [OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/releases/latest) for macOS or Windows.
-2. Open the manager and refresh the catalog.
-3. Choose **openTunerEQ**, select **VST3** (or **AU** on macOS), and install.
-4. Rescan plugins in your DAW. If you chose a custom install folder, add it to the DAW's search paths.
+- **macOS 11 or newer:** Universal VST3, Audio Unit (AU), and standalone app.
+- **Windows x64:** VST3 and standalone app.
 
-Get build ZIPs from [GitHub Actions](https://github.com/alanmarcero/openTunerEQ/actions/workflows/build.yml) or the [v1.2.2 packages from Releases](https://github.com/alanmarcero/openTunerEQ/releases/tag/v1.2.2).
+Use [OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/releases/latest) or download a package from the [latest release](https://github.com/alanmarcero/openTunerEQ/releases/latest).
 
-- **macOS:** universal Apple Silicon + Intel VST3, AU, and standalone app. Copy `openTunerEQ.vst3` to `~/Library/Audio/Plug-Ins/VST3/` or `openTunerEQ.component` to `~/Library/Audio/Plug-Ins/Components/`, then rescan in your DAW. Requires macOS 11 or newer.
-- **Windows:** x64 VST3 and standalone app. Copy the entire `openTunerEQ.vst3` directory to `C:\Program Files\Common Files\VST3\`, then rescan.
+## License
 
-macOS packages are ad-hoc signed, not Apple-notarized. Gatekeeper or your DAW may require approval for downloaded binaries. Building locally is also supported. No commercial signing identity is required by CI.
-
-## Build
-
-Requires CMake 3.22+, a C++20 compiler, and network access to fetch JUCE 8.0.9. Xcode command-line tools on macOS; Visual Studio 2022 C++ tools on Windows.
-
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release --parallel 3
-ctest --test-dir build -C Release --output-on-failure
-```
-
-Outputs are under `build/openTunerEQ_artefacts/Release/`. To build a universal macOS binary, add `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0` when configuring.
-
-The DSP tests can run without JUCE or GUI dependencies:
-
-```sh
-cmake -S . -B build-core -DOTE_BUILD_PLUGIN=OFF
-cmake --build build-core
-ctest --test-dir build-core --output-on-failure
-```
-
-## CI and source
-
-Every push and pull request runs Linux DSP tests with address/undefined-behavior sanitizers, macOS universal and Windows x64 builds, audio/state/UI tests, and [pluginval](https://github.com/Tracktion/pluginval) at strictness level 5. Passing platform jobs upload ZIPs. Pushing a `v*` tag publishes a release after all jobs pass.
-
-`Source/Core` contains the dependency-free DSP and tuning math. `Source/Plugin` contains the JUCE parameter, host, and UI integration. Bell, pass and notch sections use Vicanek's matched second-order design ("Matched Second Order Digital Filters", 2016), so they keep their analog shape up to Nyquist. Shelves follow the [W3C Audio EQ Cookbook](https://www.w3.org/TR/audio-eq-cookbook/). Build structure follows [openMaster](https://github.com/alanmarcero/openMaster) and [openEDMFilter](https://github.com/alanmarcero/openEDMFilter).
-
-The analyzer's freeze, release-speed and tilt controls follow workflow ideas documented in [FabFilter Pro-Q 4's spectrum analyzer help](https://www.fabfilter.com/help/pro-q/using/analyzer). They affect only the editor display; the EQ audio path and its latency are unchanged. See [commercial research notes](docs/COMMERCIAL_RESEARCH.md).
-
-The graphite faceplate and metal tuning-fork emblem are generated raster assets embedded in the plugin. Prompts and provenance: [docs/assets.md](docs/assets.md). The screenshot above is captured from the released VST3 editor; its provenance is linked below the image.
-
-Copyright © 2026 Alan Marcero. Source is [AGPL-3.0](LICENSE); JUCE is used under its AGPL option. See [JUCE licensing](https://juce.com/legal/juce-8-licence/).
+AGPL-3.0. JUCE uses its AGPL option. See [LICENSE](LICENSE) and the [JUCE license](https://juce.com/legal/juce-8-licence/).
