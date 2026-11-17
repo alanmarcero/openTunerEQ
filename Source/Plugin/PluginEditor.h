@@ -12,7 +12,7 @@ private:
     ui::Theme theme;
     juce::Component content;
     juce::Image faceplate, emblem;
-    juce::TextButton snap {"Snap to notes"}, flats {"Flats (b)"}, bypass {"Bypass"}, octaveDown {"- Oct"}, octaveUp {"+ Oct"};
+    juce::TextButton snap {"Snap to notes"}, flats {"Use flats"}, bypass {"Bypass"}, octaveDown {"- Octave"}, octaveUp {"+ Octave"};
     juce::Slider output, reference;
     juce::Label selectedLabel, rangeLabel;
     ResponseGraph graph;

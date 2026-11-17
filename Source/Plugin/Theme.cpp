@@ -71,7 +71,7 @@ void Theme::drawButtonBackground(juce::Graphics& g, juce::Button& button, const 
     g.fillRoundedRectangle(area, 5); g.setColour(muted.withAlpha(0.18f)); g.drawRoundedRectangle(area, 5, 1);
 }
 void Theme::drawButtonText(juce::Graphics& g, juce::TextButton& button, bool, bool) {
-    text(g, button.getButtonText(), button.getLocalBounds().toFloat(), 12, button.getToggleState() ? background : ink, juce::Justification::centred, true);
+    text(g, button.getButtonText(), button.getLocalBounds().toFloat(), 14, button.getToggleState() ? background : ink, juce::Justification::centred, true);
 }
 void Theme::drawComboBox(juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox& box) {
     const bool note = box.getComponentID().endsWith(".note");
@@ -82,5 +82,5 @@ void Theme::drawComboBox(juce::Graphics& g, int w, int h, bool, int, int, int, i
     arrow.startNewSubPath(xx - 3, yy - 2); arrow.lineTo(xx, yy + 1); arrow.lineTo(xx + 3, yy - 2);
     g.setColour(muted.withAlpha(box.isEnabled() ? 1.0f : 0.2f)); g.strokePath(arrow, juce::PathStrokeType(1.2f));
 }
-juce::Font Theme::getComboBoxFont(juce::ComboBox& box) { return font(box.getComponentID().endsWith(".note") ? 32.0f : 12.0f, box.getComponentID().endsWith(".note")); }
+juce::Font Theme::getComboBoxFont(juce::ComboBox& box) { return font(box.getComponentID().endsWith(".note") ? 32.0f : 14.0f, box.getComponentID().endsWith(".note")); }
 }

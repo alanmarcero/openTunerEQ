@@ -1,9 +1,9 @@
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 namespace ui {
-inline const juce::Colour background {0xff10191e}, panel {0xf01b282e}, ink {0xffece8de}, muted {0xff9ba7b0}, copper {0xffe5b386};
+inline const juce::Colour background {0xff0d1317}, panel {0xf0152026}, ink {0xffe6f0f5}, muted {0xff869ca8}, copper {0xffffbe3b};
 inline const std::array<juce::Colour, 5> bandColours {
-    juce::Colour(0xffe6ad77), juce::Colour(0xffe4cf8a), juce::Colour(0xff7bc6b6), juce::Colour(0xff84b9db), juce::Colour(0xffb9a3d5)};
+    juce::Colour(0xffffbe3b), juce::Colour(0xff48f0c8), juce::Colour(0xff78c6c1), juce::Colour(0xff84b9db), juce::Colour(0xffb9a3d5)};
 juce::Font font(float size, bool bold = false);
 void text(juce::Graphics&, const juce::String&, juce::Rectangle<float>, float size, juce::Colour = ink, juce::Justification = juce::Justification::centredLeft, bool bold = false);
 juce::String frequencyText(double hz);
