@@ -4,7 +4,7 @@
 TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor(p), graph(p), piano(p) {
     setLookAndFeel(&theme);
     faceplate = juce::ImageCache::getFromMemory(BinaryData::analogcyberfaceplate_png, BinaryData::analogcyberfaceplate_pngSize);
-    emblem = juce::ImageCache::getFromMemory(BinaryData::emblem_png, BinaryData::emblem_pngSize);
+    tuningFork = juce::Drawable::createFromImageData(BinaryData::tuningfork_svg, BinaryData::tuningfork_svgSize);
     addAndMakeVisible(content);
     for (auto* button : {&snap, &flats, &bypass}) { button->setClickingTogglesState(true); content.addAndMakeVisible(button); }
     snap.setTooltip("Snap every band to the nearest chromatic note of the A4 reference, including host automation");
@@ -30,6 +30,8 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     }
     graph.onSelect = [this](int band) { select(band); };
     piano.onNote = [this](int midi) { panels[static_cast<size_t>(selected)]->chooseNote(midi); };
+    octaveDown.setTooltip("Tune the selected band down one octave");
+    octaveUp.setTooltip("Tune the selected band up one octave");
     octaveDown.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) - 12); };
     octaveUp.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) + 12); };
     setResizable(true, true); setResizeLimits(1160, 840, 1740, 1260);
@@ -62,7 +64,7 @@ void TunerEditor::resized() {
     graph.setBounds(24, 94, 1112, 242);
     for (int i = 0; i < 5; ++i) panels[static_cast<size_t>(i)]->setBounds(24 + i * 224, 340, 216, 366);
     selectedLabel.setBounds(25, 735, 205, 25); rangeLabel.setBounds(25, 761, 205, 21);
-    octaveDown.setBounds(25, 784, 90, 36); octaveUp.setBounds(123, 784, 90, 36);
+    octaveDown.setBounds(25, 780, 90, 40); octaveUp.setBounds(123, 780, 90, 40);
     piano.setBounds(240, 739, 896, 74);
     reference.setBounds(966, 710, 170, 26);
 }
@@ -74,7 +76,12 @@ void TunerEditor::paint(juce::Graphics& g) {
     g.setColour(ui::copper.withAlpha(0.35f)); g.drawHorizontalLine(82, 24, 1136);
     g.setColour(ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(8, 8, 1144, 824, 8, 1);
     g.setOpacity(1.0f);
-    g.drawImageWithin(emblem, 21, 12, 58, 62, juce::RectanglePlacement::centred, false);
+    if (tuningFork) {
+        const float decay = 1.0f - processor.artworkPhase();
+        const float size = 50.0f + 10.0f * decay * decay;
+        const auto bounds = juce::Rectangle<float>(size, size).withCentre({50.0f, 43.0f});
+        tuningFork->drawWithin(g, bounds, juce::RectanglePlacement::centred, 0.78f + 0.22f * decay);
+    }
     ui::text(g, "openTunerEQ", {91, 16, 310, 34}, 30, ui::ink, juce::Justification::centredLeft, true);
     ui::text(g, "VICANEK MATCHED ANALOG FILTER ENGINE", {93, 50, 330, 18}, 11, ui::copper);
     ui::text(g, "Output", {787, 31, 55, 24}, 12, ui::muted);

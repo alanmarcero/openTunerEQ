@@ -48,6 +48,8 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     octave.onChange = note.onChange;
     down.onClick = [this] { chooseNote(ote::nearestNote(processor.bandFrequency(index), processor.referencePitch()) - 1); };
     up.onClick = [this] { chooseNote(ote::nearestNote(processor.bandFrequency(index), processor.referencePitch()) + 1); };
+    down.setTitle("Lower band by one semitone");
+    up.setTitle("Raise band by one semitone");
     down.setTooltip("Lower this band's frequency by one semitone"); up.setTooltip("Raise this band's frequency by one semitone");
     addMouseListener(this, true);
     refresh();
@@ -102,17 +104,18 @@ void BandPanel::paint(juce::Graphics& g) {
     g.setColour(selected ? colour.withAlpha(0.8f) : ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(area, 9, selected ? 1.5f : 1.0f);
     g.setColour(colour.withAlpha(enabled.getToggleState() ? 1.0f : 0.25f)); g.fillRoundedRectangle(15, 18, 6, 6, 3);
     ui::text(g, "Band " + juce::String(index + 1), {28, 10, 95, 22}, 13, ui::ink, juce::Justification::centredLeft, true);
+    ui::text(g, "Note", {16, 44, 100, 16}, 12, ui::muted);
     ui::text(g, "Octave", {153, 44, 50, 16}, 12, ui::muted);
     ui::text(g, "Gain", {15, 177, 83, 18}, 12, ui::muted, juce::Justification::centred);
     ui::text(g, "Q / width", {115, 177, 83, 18}, 12, ui::muted, juce::Justification::centred);
 }
 void BandPanel::resized() {
     const auto w = getWidth();
-    enabled.setBounds(w - 90, 8, 75, 36);
-    note.setBounds(14, 49, 119, 43); octave.setBounds(w - 63, 61, 48, 36);
-    hz.setBounds(50, 94, w - 100, 24); cents.setBounds(50, 119, w - 100, 18);
-    down.setBounds(7, 87, 40, 40); up.setBounds(w - 47, 87, 40, 40);
+    enabled.setBounds(w - 90, 3, 75, 40);
+    note.setBounds(14, 60, 119, 40); octave.setBounds(w - 63, 60, 48, 40);
+    hz.setBounds(50, 101, w - 100, 20); cents.setBounds(50, 121, w - 100, 18);
+    down.setBounds(7, 101, 40, 40); up.setBounds(w - 47, 101, 40, 40);
     frequency.setBounds(14, 141, w - 28, 36);
     gain.setBounds(12, 196, (w - 28) / 2, 82); q.setBounds(w / 2 + 2, 196, (w - 28) / 2, 82);
-    shape.setBounds(14, 286, w - 28, 36); slope.setBounds(14, 328, w - 28, 36);
+    shape.setBounds(14, 282, w - 28, 40); slope.setBounds(14, 324, w - 28, 40);
 }

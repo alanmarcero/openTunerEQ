@@ -102,4 +102,5 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: openTunerEQ-*.zip
+          body: '![Native editor](https://raw.githubusercontent.com/alanmarcero/openTunerEQ/${{ github.ref_name }}/assets/native-ui.png)'
           generate_release_notes: true

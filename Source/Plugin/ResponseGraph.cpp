@@ -32,12 +32,12 @@ ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spect
 }
 ResponseGraph::~ResponseGraph() { processor.spectrum.setActive(false); endGesture(); }
 void ResponseGraph::resized() {
-    freezeToggle.setBounds(getWidth() - 635, 3, 60, 36);
-    analyzerRelease.setBounds(getWidth() - 569, 3, 90, 36);
-    analyzerTilt.setBounds(getWidth() - 473, 3, 78, 36);
-    analyzerToggle.setBounds(getWidth() - 391, 3, 100, 36);
-    analyzerSource.setBounds(getWidth() - 283, 3, 128, 36);
-    analyzerStyle.setBounds(getWidth() - 147, 3, 140, 36);
+    freezeToggle.setBounds(getWidth() - 635, 0, 60, 40);
+    analyzerRelease.setBounds(getWidth() - 569, 0, 90, 40);
+    analyzerTilt.setBounds(getWidth() - 473, 0, 78, 40);
+    analyzerToggle.setBounds(getWidth() - 391, 0, 100, 40);
+    analyzerSource.setBounds(getWidth() - 283, 0, 128, 40);
+    analyzerStyle.setBounds(getWidth() - 147, 0, 140, 40);
 }
 void ResponseGraph::refresh() {
     const auto enabled = processor.state.getRawParameterValue("analyzerEnabled")->load() > 0.5f;

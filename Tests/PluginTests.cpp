@@ -53,6 +53,27 @@ void checkAnalyzerSources() {
         require(std::abs(measure(true, true) - before) < 0.2, "after-EQ spectrum follows host bypass");
     }
 }
+void checkButtonLayout(const juce::Component& parent, int minimum) {
+    for (int i = 0; i < parent.getNumChildComponents(); ++i) {
+        const auto* child = parent.getChildComponent(i);
+        if (!child->isVisible()) continue;
+        const bool actionable = dynamic_cast<const juce::Button*>(child) != nullptr
+                             || dynamic_cast<const juce::ComboBox*>(child) != nullptr;
+        if (!actionable) {
+            checkButtonLayout(*child, minimum);
+            continue;
+        }
+        const auto bounds = child->getBounds();
+        require(bounds.getWidth() >= minimum && bounds.getHeight() >= minimum, "An action target is too small");
+        for (int j = i + 1; j < parent.getNumChildComponents(); ++j) {
+            const auto* other = parent.getChildComponent(j);
+            if (!other->isVisible()) continue;
+            if (dynamic_cast<const juce::Button*>(other) || dynamic_cast<const juce::ComboBox*>(other))
+                require(!bounds.intersects(other->getBounds()), "Two action targets overlap");
+        }
+    }
+}
+
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
     TunerProcessor processor;
@@ -166,6 +187,39 @@ int main(int argc, char** argv) {
     require(std::abs(audio.getSample(0, 511) - 0.1f) < 1e-6, "host bypass transparent");
     std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
     require(editor != nullptr && editor->getWidth() >= 1000, "editor creation");
+    checkButtonLayout(*editor, 40);
+    struct ArtworkHost : juce::AudioPlayHead {
+        PositionInfo position;
+        juce::Optional<PositionInfo> getPosition() const override { return position; }
+    } host;
+    processor.setPlayHead(&host);
+    juce::AudioBuffer<float> clockAudio(2, 256);
+    juce::MidiBuffer clockMidi;
+    clockAudio.clear();
+    host.position.setIsPlaying(true);
+    host.position.setBpm(140.0);
+    host.position.setPpqPosition(-1.75);
+    processor.processBlock(clockAudio, clockMidi);
+    require(std::abs(processor.artworkPhase() - 0.25f) < 0.0001f, "SVG follows a negative host position");
+    const auto onbeat = editor->createComponentSnapshot(juce::Rectangle<int>(18, 12, 64, 62));
+    host.position.setPpqPosition(22.875);
+    processor.processBlock(clockAudio, clockMidi);
+    require(std::abs(processor.artworkPhase() - 0.875f) < 0.0001f, "SVG follows a host seek");
+    const auto offbeat = editor->createComponentSnapshot(juce::Rectangle<int>(18, 12, 64, 62));
+    int changed = 0;
+    for (int y = 0; y < onbeat.getHeight(); ++y)
+        for (int x = 0; x < onbeat.getWidth(); ++x)
+            if (onbeat.getPixelAt(x, y) != offbeat.getPixelAt(x, y)) ++changed;
+    require(changed > 30, "Native SVG pixels move with beat phase");
+    host.position.setIsPlaying(false);
+    host.position.setPpqPosition(0);
+    processor.processBlock(clockAudio, clockMidi);
+    require(std::abs(processor.artworkPhase() - 0.875f) < 0.0001f, "SVG holds phase when the host stops");
+    processor.setPlayHead(nullptr);
+    processor.processBlock(clockAudio, clockMidi);
+    processor.processBlock(clockAudio, clockMidi);
+    require(processor.artworkPhase() > 0.875f, "SVG advances on audio time without host transport");
+
     auto find = [&](auto&& self, juce::Component& root, const juce::String& id) -> juce::Component* {
         if (root.getComponentID() == id) return &root;
         for (auto* child : root.getChildren()) if (auto* match = self(self, *child, id)) return match;

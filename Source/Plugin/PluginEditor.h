@@ -11,7 +11,8 @@ private:
     TunerProcessor& processor;
     ui::Theme theme;
     juce::Component content;
-    juce::Image faceplate, emblem;
+    juce::Image faceplate;
+    std::unique_ptr<juce::Drawable> tuningFork;
     juce::TextButton snap {"Snap to notes"}, flats {"Use flats"}, bypass {"Bypass"}, octaveDown {"- Octave"}, octaveUp {"+ Octave"};
     juce::Slider output, reference;
     juce::Label selectedLabel, rangeLabel;
