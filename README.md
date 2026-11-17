@@ -29,4 +29,4 @@ Use [OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/relea
 
 ## License
 
-AGPL-3.0. JUCE uses its AGPL option. See [LICENSE](LICENSE) and the [JUCE license](https://juce.com/legal/juce-8-licence/).
+AGPL-3.0. See [LICENSE](LICENSE) for terms.
