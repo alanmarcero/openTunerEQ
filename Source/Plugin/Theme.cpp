@@ -23,6 +23,9 @@ Theme::Theme() {
     setColour(juce::TextButton::buttonOnColourId, copper);
     setColour(juce::TextEditor::backgroundColourId, panel);
     setColour(juce::TextEditor::textColourId, ink);
+    setColour(juce::TooltipWindow::backgroundColourId, panel);
+    setColour(juce::TooltipWindow::textColourId, ink);
+    setColour(juce::TooltipWindow::outlineColourId, muted);
     setColour(juce::TextEditor::highlightColourId, copper.withAlpha(0.3f));
 }
 juce::Label* Theme::createSliderTextBox(juce::Slider& slider) {
@@ -68,10 +71,15 @@ void Theme::drawButtonBackground(juce::Graphics& g, juce::Button& button, const 
     auto area = button.getLocalBounds().toFloat().reduced(0.5f);
     const auto on = button.getToggleState();
     g.setColour(on ? button.findColour(juce::TextButton::buttonOnColourId) : juce::Colour(over || down ? 0xff35404b : 0xff242d35));
-    g.fillRoundedRectangle(area, 5); g.setColour(muted.withAlpha(0.18f)); g.drawRoundedRectangle(area, 5, 1);
+    g.fillRoundedRectangle(area, 5);
+    const bool focus = button.hasKeyboardFocus(false);
+    g.setColour(focus ? ink : muted.withAlpha(0.35f));
+    g.drawRoundedRectangle(area.reduced(0.5f), 5, focus ? 2.0f : 1.0f);
 }
 void Theme::drawButtonText(juce::Graphics& g, juce::TextButton& button, bool, bool) {
-    text(g, button.getButtonText(), button.getLocalBounds().toFloat(), 14, button.getToggleState() ? background : ink, juce::Justification::centred, true);
+    const auto colour = button.getToggleState() ? background : ink;
+    text(g, button.getButtonText(), button.getLocalBounds().toFloat(), 14,
+         button.isEnabled() ? colour : muted, juce::Justification::centred, true);
 }
 void Theme::drawComboBox(juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox& box) {
     const bool note = box.getComponentID().endsWith(".note");

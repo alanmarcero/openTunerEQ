@@ -6,6 +6,8 @@ A five-band equalizer with note-aware controls and a live spectrum display.
 
 [Download the latest release](https://github.com/alanmarcero/openTunerEQ/releases/latest) · [Install with OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/releases/latest)
 
+The tuning fork in the header pulses on host quarter notes and holds when the host stops. In standalone mode it follows a 120 BPM sample clock.
+
 ## Equalizer
 
 Each band has its own enable switch, frequency, gain, Q, and filter shape. Choose Bell, Low shelf, High shelf, High pass, Low pass, Notch, or Band pass. Frequency covers 20 Hz to 20 kHz, with a lower maximum at low sample rates. Gain covers ±24 dB, and Q covers 0.1 to 18. High-pass and low-pass slopes are 12, 24, 48, or 96 dB per octave.

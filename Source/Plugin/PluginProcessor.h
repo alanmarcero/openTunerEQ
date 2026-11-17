@@ -1,4 +1,5 @@
 #pragma once
+#include "ArtworkBeatClock.h"
 #include "Parameters.h"
 #include "SpectrumAnalyzer.h"
 class TunerProcessor final : public juce::AudioProcessor {
@@ -31,8 +32,10 @@ public:
     void setParameter(const juce::String& id, float value);
     params::State state;
     SpectrumCapture spectrum;
+    float artworkPhase() const noexcept { return artworkClock.currentPhase(); }
     std::atomic<float> peak {0};
 private:
+    ArtworkBeatClock artworkClock;
     struct BandValues { std::atomic<float> *enabled, *shape, *freq, *gain, *q, *slope; };
     std::array<BandValues, 5> values;
     std::atomic<float> *snap, *flats, *bypass, *output, *reference, *analyzerEnabled, *analyzerSource;

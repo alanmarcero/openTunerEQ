@@ -15,7 +15,13 @@ TunerProcessor::TunerProcessor()
     analyzerEnabled = state.getRawParameterValue("analyzerEnabled");
     analyzerSource = state.getRawParameterValue("analyzerSource");
 }
-void TunerProcessor::prepareToPlay(double rate, int) { uiSampleRate.store(rate); spectrum.prepare(rate); engine.prepare(rate); engine.setSettings(readSettings(), true); }
+void TunerProcessor::prepareToPlay(double rate, int) {
+    artworkClock.reset();
+    uiSampleRate.store(rate);
+    spectrum.prepare(rate);
+    engine.prepare(rate);
+    engine.setSettings(readSettings(), true);
+}
 bool TunerProcessor::isBusesLayoutSupported(const BusesLayout& layout) const {
     auto main = layout.getMainOutputChannelSet();
     return (main == juce::AudioChannelSet::mono() || main == juce::AudioChannelSet::stereo()) && main == layout.getMainInputChannelSet();
@@ -39,6 +45,9 @@ double TunerProcessor::bandFrequency(int index) const noexcept {
 }
 void TunerProcessor::process(juce::AudioBuffer<float>& buffer, bool forceBypass) {
     juce::ScopedNoDenormals noDenormals;
+    auto* playHead = getPlayHead();
+    artworkClock.update(playHead ? playHead->getPosition() : juce::Optional<juce::AudioPlayHead::PositionInfo>{},
+                        buffer.getNumSamples(), uiSampleRate.load(std::memory_order_relaxed));
     for (int i = getTotalNumInputChannels(); i < buffer.getNumChannels(); ++i) buffer.clear(i, 0, buffer.getNumSamples());
     const bool visualize = analyzerEnabled->load() > 0.5f;
     const bool afterEQ = analyzerSource->load() > 0.5f;
