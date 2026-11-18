@@ -2,7 +2,7 @@
 
 A five-band equalizer with note-aware controls and a live spectrum display.
 
-![openTunerEQ equalizer and analyzer](assets/native-ui.png)
+![openTunerEQ equalizer and analyzer](docs/screenshots/preview.png)
 
 [Download the latest release](https://github.com/alanmarcero/openTunerEQ/releases/latest) · [Install with OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/releases/latest)
 
