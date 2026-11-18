@@ -15,3 +15,13 @@ Run `build/plugin_tests assets/native-ui.png` after a Release build to reproduce
 ![Bars behind the EQ](../assets/native-ui-bars.png)
 
 ![Spectrogram behind the EQ](../assets/native-ui-spectrogram.png)
+
+
+## OpenVST Manager preview
+
+OpenVST Manager shows `docs/screenshots/preview.png` from `main` (see `screenshotPath` in its catalog), and the GitHub release body and README hero point at the same file. This is the single image to keep current. Refresh it with the main editor capture whenever the UI changes, and commit it before tagging a release:
+
+```sh
+mkdir -p build/shots && build/plugin_tests build/shots/native-ui.png
+cp build/shots/native-ui.png docs/screenshots/preview.png
+```
