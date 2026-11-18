@@ -24,6 +24,7 @@ private:
         std::array<std::array<Biquad, 8>, 2> filters {};
         BandSettings current;
         int count = 1;
+        double designedRate = -1.0;
         void reset() noexcept;
         void update(const BandSettings&, double rate, double smoothing) noexcept;
         double process(double sample, int channel) noexcept;

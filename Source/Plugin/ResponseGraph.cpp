@@ -118,15 +118,33 @@ void ResponseGraph::paint(juce::Graphics& g) {
     const auto rate = processor.displaySampleRate();
     {
         juce::Graphics::ScopedSaveState save(g); g.reduceClipRegion(p.toNearestInt());
+        std::array<ote::FilterDesign, 5> designs{};
+        for (size_t i = 0; i < 5; ++i) {
+            if (settings.bands[i].enabled) {
+                designs[i] = ote::designFilter(settings.bands[i], rate);
+            }
+        }
         std::array<juce::Path, 5> curves;
         juce::Path total;
         const int steps = static_cast<int>(p.getWidth() / 2);
         for (int step = 0; step <= steps; ++step) {
             const auto x = p.getX() + p.getWidth() * step / steps;
             const auto frequency = 20.0 * std::pow(1000.0, static_cast<double>(step) / steps);
+            const double w = 2.0 * juce::MathConstants<double>::pi * frequency / rate;
             double sum = settings.outputDb;
             for (size_t i = 0; i < 5; ++i) {
-                const auto db = frequency < rate * 0.5 ? ote::responseDb(settings.bands[i], rate, frequency) : -150.0;
+                double db = 0.0;
+                if (settings.bands[i].enabled) {
+                    if (frequency < rate * 0.5) {
+                        double mag = 1.0;
+                        for (int s = 0; s < designs[i].count; ++s) {
+                            mag *= designs[i].stages[static_cast<size_t>(s)].magnitude(w);
+                        }
+                        db = 20.0 * std::log10(std::max(1.0e-15, mag));
+                    } else {
+                        db = -150.0;
+                    }
+                }
                 sum += db;
                 if (step == 0) curves[i].startNewSubPath(x, yFor(db)); else curves[i].lineTo(x, yFor(db));
             }
