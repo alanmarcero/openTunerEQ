@@ -34,14 +34,34 @@ double estimateTailSeconds(const Settings& settings, double sampleRate) noexcept
     return timeConstant * (std::log(1e9) + 2.0 * sections + boost * std::log(10.0) / 20.0);
 }
 void Equalizer::Bank::reset() noexcept {
+    designedRate = -1.0;
     for (auto& channel : filters) for (auto& filter : channel) filter.reset();
 }
 void Equalizer::Bank::update(const BandSettings& target, double rate, double smoothing) noexcept {
-    current.frequency = std::exp(std::log(target.frequency) + smoothing * (std::log(current.frequency) - std::log(target.frequency)));
-    current.gainDb = target.gainDb + smoothing * (current.gainDb - target.gainDb);
-    current.q = target.q + smoothing * (current.q - target.q);
+    if (designedRate == rate
+        && std::abs(current.frequency - target.frequency) < 1.0e-4
+        && std::abs(current.gainDb - target.gainDb) < 1.0e-4
+        && std::abs(current.q - target.q) < 1.0e-4
+        && current.shape == target.shape
+        && current.slope == target.slope) {
+        return;
+    }
+    if (smoothing <= 0.0 || (std::abs(current.frequency - target.frequency) < 1.0e-4
+        && std::abs(current.gainDb - target.gainDb) < 1.0e-4
+        && std::abs(current.q - target.q) < 1.0e-4)) {
+        current.frequency = target.frequency;
+        current.gainDb = target.gainDb;
+        current.q = target.q;
+    } else {
+        current.frequency = std::exp(std::log(target.frequency) + smoothing * (std::log(current.frequency) - std::log(target.frequency)));
+        current.gainDb = target.gainDb + smoothing * (current.gainDb - target.gainDb);
+        current.q = target.q + smoothing * (current.q - target.q);
+    }
+    current.shape = target.shape;
+    current.slope = target.slope;
     const auto design = designFilter(current, rate);
     count = design.count;
+    designedRate = rate;
     for (auto& channel : filters)
         for (int i = 0; i < count; ++i) channel[static_cast<size_t>(i)].coefficients = design.stages[static_cast<size_t>(i)];
 }
@@ -94,6 +114,9 @@ void Equalizer::setSettings(const Settings& settings, bool immediately) noexcept
 }
 void Equalizer::updateFilters() noexcept {
     for (auto& band : bands) {
+        if (!band.target.enabled && band.wet == 0.0 && band.remaining == 0) {
+            continue;
+        }
         auto& active = band.banks[static_cast<size_t>(band.active)];
         auto& next = band.banks[static_cast<size_t>(1 - band.active)];
         if (band.remaining == 0 && topologyDiffers(active.current, band.target)) {
@@ -115,6 +138,9 @@ void Equalizer::process(float* const* channels, int channelCount, int samples) n
         std::array<double, 2> dry {}, wet {};
         for (int c = 0; c < channelCount; ++c) dry[static_cast<size_t>(c)] = wet[static_cast<size_t>(c)] = channels[c][frame];
         for (auto& band : bands) {
+            if (!band.target.enabled && band.wet == 0.0 && band.remaining == 0) {
+                continue;
+            }
             band.wet = approach(band.wet, band.target.enabled ? 1 : 0, fadeStep);
             const auto blend = 1.0 - static_cast<double>(band.remaining) / fadeSamples;
             for (int c = 0; c < channelCount; ++c) {
