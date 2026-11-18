@@ -14,6 +14,9 @@ TunerProcessor::TunerProcessor()
     reference = state.getRawParameterValue("a4");
     analyzerEnabled = state.getRawParameterValue("analyzerEnabled");
     analyzerSource = state.getRawParameterValue("analyzerSource");
+    scale = state.getRawParameterValue("scale");
+    autoGain = state.getRawParameterValue("autoGain");
+    soloSelected = state.getRawParameterValue("soloSelected");
 }
 void TunerProcessor::prepareToPlay(double rate, int) {
     artworkClock.reset();
@@ -31,11 +34,14 @@ ote::Settings TunerProcessor::readSettings() const noexcept {
     ote::Settings result;
     result.snap = snap->load() > 0.5f; result.bypass = bypass->load() > 0.5f; result.outputDb = safe(output, 0);
     result.a4 = safe(reference, static_cast<float>(ote::standardPitch));
+    result.scale = safe(scale, 100.0f) * 0.01;
+    result.autoGain = autoGain->load() > 0.5f;
+    result.soloBand = soloSelected->load() > 0.5f ? juce::jlimit(0, 4, activeSelectedBand.load()) : -1;
     for (size_t i = 0; i < values.size(); ++i) {
         const auto& v = values[i]; auto& b = result.bands[i];
         b.enabled = v.enabled->load() > 0.5f;
         b.shape = static_cast<ote::Shape>(juce::jlimit(0, 6, static_cast<int>(safe(v.shape, 0))));
-        b.frequency = safe(v.freq, 440); b.gainDb = safe(v.gain, 0); b.q = safe(v.q, 0.7071f);
+        b.frequency = safe(v.freq, 440); b.gainDb = safe(v.gain, 0) * result.scale; b.q = safe(v.q, 0.7071f);
         b.slope = params::slopeValues[static_cast<size_t>(juce::jlimit(0, 3, static_cast<int>(safe(v.slope, 0))))];
     }
     return result;
@@ -64,8 +70,24 @@ void TunerProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
 void TunerProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) { process(buffer, true); }
 void TunerProcessor::getStateInformation(juce::MemoryBlock& dest) { if (auto xml = state.copyState().createXml()) copyXmlToBinary(*xml, dest); }
 void TunerProcessor::setStateInformation(const void* data, int size) {
-    if (auto xml = getXmlFromBinary(data, size); xml && xml->hasTagName(state.state.getType()))
-        state.replaceState(juce::ValueTree::fromXml(*xml));
+    if (auto xml = getXmlFromBinary(data, size); xml && xml->hasTagName(state.state.getType())) {
+        auto tree = juce::ValueTree::fromXml(*xml);
+        if (!tree.isValid()) return;
+        const std::pair<const char*, float> defaults[] {
+            {"analyzerEnabled", 1.0f}, {"analyzerStyle", 0.0f}, {"analyzerSource", 0.0f},
+            {"analyzerFreeze", 0.0f}, {"analyzerRelease", 1.0f}, {"analyzerTilt", 2.0f},
+            {"scale", 100.0f}, {"autoGain", 0.0f}, {"soloSelected", 0.0f}
+        };
+        for (const auto& [id, def] : defaults) {
+            if (!tree.getChildWithProperty("id", id).isValid()) {
+                juce::ValueTree child("PARAM");
+                child.setProperty("id", id, nullptr);
+                child.setProperty("value", def, nullptr);
+                tree.appendChild(child, nullptr);
+            }
+        }
+        state.replaceState(tree);
+    }
 }
 juce::AudioProcessorParameter* TunerProcessor::getBypassParameter() const { return state.getParameter("bypass"); }
 void TunerProcessor::setParameter(const juce::String& id, float value) {

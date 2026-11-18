@@ -84,6 +84,9 @@ int main(int argc, char** argv) {
     require(processor.state.getRawParameterValue("analyzerFreeze") != nullptr, "spectrum freeze parameter is registered");
     require(processor.state.getRawParameterValue("analyzerRelease") != nullptr, "spectrum release parameter is registered");
     require(processor.state.getRawParameterValue("analyzerTilt") != nullptr, "spectrum tilt parameter is registered");
+    require(processor.state.getRawParameterValue("scale") != nullptr && processor.state.getRawParameterValue("scale")->load() == 100.0f, "EQ scale parameter defaults to 100%");
+    require(processor.state.getRawParameterValue("autoGain") != nullptr && processor.state.getRawParameterValue("autoGain")->load() == 0.0f, "autoGain parameter defaults off");
+    require(processor.state.getRawParameterValue("soloSelected") != nullptr && processor.state.getRawParameterValue("soloSelected")->load() == 0.0f, "soloSelected parameter defaults off");
     processor.setParameter("analyzerEnabled", 0);
     processor.setParameter("analyzerStyle", 2);
     processor.setParameter("analyzerSource", 1);
@@ -103,7 +106,8 @@ int main(int argc, char** argv) {
     auto legacy = processor.state.copyState();
     for (int i = legacy.getNumChildren(); --i >= 0;) {
         const auto id = legacy.getChild(i).getProperty("id").toString();
-        if (id == "analyzerEnabled" || id == "analyzerStyle" || id == "analyzerSource" || id == "analyzerFreeze" || id == "analyzerRelease" || id == "analyzerTilt") legacy.removeChild(i, nullptr);
+        if (id == "analyzerEnabled" || id == "analyzerStyle" || id == "analyzerSource" || id == "analyzerFreeze" || id == "analyzerRelease" || id == "analyzerTilt"
+            || id == "scale" || id == "autoGain" || id == "soloSelected") legacy.removeChild(i, nullptr);
     }
     juce::MemoryBlock legacyState;
     juce::AudioProcessor::copyXmlToBinary(*legacy.createXml(), legacyState);
@@ -114,6 +118,9 @@ int main(int argc, char** argv) {
     require(analyzerRestored.state.getRawParameterValue("analyzerFreeze")->load() == 0.0f, "old sessions leave spectrum freeze off");
     require(analyzerRestored.state.getRawParameterValue("analyzerRelease")->load() == 1.0f, "old sessions use the medium spectrum release");
     require(analyzerRestored.state.getRawParameterValue("analyzerTilt")->load() == 2.0f, "old sessions use the natural spectrum tilt");
+    require(analyzerRestored.state.getRawParameterValue("scale")->load() == 100.0f, "old sessions default EQ scale to 100%");
+    require(analyzerRestored.state.getRawParameterValue("autoGain")->load() == 0.0f, "old sessions default autoGain off");
+    require(analyzerRestored.state.getRawParameterValue("soloSelected")->load() == 0.0f, "old sessions default soloSelected off");
     processor.setParameter("analyzerFreeze", 0);
     processor.setParameter("analyzerEnabled", 1);
     processor.setParameter("analyzerSource", 0);

@@ -64,11 +64,23 @@ void Equalizer::prepare(double sampleRate) noexcept {
 }
 void Equalizer::setSettings(const Settings& settings, bool immediately) noexcept {
     bypass = settings.bypass;
-    targetOutput = std::pow(10.0, std::clamp(settings.outputDb, -24.0, 12.0) / 20.0);
+    double autoCompDb = 0.0;
     for (size_t i = 0; i < bands.size(); ++i) {
         auto& band = bands[i];
         band.target = settings.bands[i];
         band.target.frequency = effectiveFrequency(band.target.frequency, settings.snap, rate, settings.a4);
+        if (settings.soloBand >= 0 && settings.soloBand < 5) {
+            if (static_cast<int>(i) == settings.soloBand) {
+                band.target.enabled = true;
+                band.target.shape = Shape::BandPass;
+                band.target.q = std::max(1.2, band.target.q);
+            } else {
+                band.target.enabled = false;
+            }
+        } else if (settings.autoGain && band.target.enabled && usesGain(band.target.shape)) {
+            const double qWeight = std::clamp(1.0 / std::sqrt(std::max(0.25, band.target.q)), 0.18, 0.65);
+            autoCompDb -= band.target.gainDb * qWeight * 0.45;
+        }
         if (immediately) {
             band.active = 0; band.remaining = 0; band.wet = band.target.enabled ? 1 : 0;
             for (auto& bank : band.banks) {
@@ -76,6 +88,8 @@ void Equalizer::setSettings(const Settings& settings, bool immediately) noexcept
             }
         }
     }
+    const double totalOutDb = std::clamp(settings.outputDb + std::clamp(autoCompDb, -12.0, 12.0), -24.0, 12.0);
+    targetOutput = std::pow(10.0, totalOutDb / 20.0);
     if (immediately) { bypassWet = bypass ? 0 : 1; outputGain = targetOutput; controlCounter = 0; }
 }
 void Equalizer::updateFilters() noexcept {

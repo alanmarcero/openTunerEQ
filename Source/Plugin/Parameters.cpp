@@ -31,6 +31,9 @@ State::ParameterLayout layout() {
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("analyzerFreeze", 3), "Freeze spectrum", false));
     result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerRelease", 3), "Analyzer release", juce::StringArray {"Slow 24 dB/s", "Medium 48 dB/s", "Fast 96 dB/s"}, 1));
     result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerTilt", 3), "Analyzer tilt", juce::StringArray {"0 dB/oct", "3 dB/oct", "4.5 dB/oct", "6 dB/oct"}, 2));
+    result.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("scale", 4), "EQ gain scale", juce::NormalisableRange<float>(0.0f, 200.0f, 1.0f), 100.0f, juce::AudioParameterFloatAttributes().withLabel("%")));
+    result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("autoGain", 4), "Auto-gain compensation", false));
+    result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("soloSelected", 4), "Solo selected band", false));
     return result;
 }
 }

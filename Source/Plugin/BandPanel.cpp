@@ -16,8 +16,8 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     shape.addItemList(params::shapes, 1); slope.addItemList(params::slopes, 1);
     shape.setTooltip("Filter shape"); slope.setTooltip("Cut steepness in dB per octave. 96 is steep, not an ideal brick wall.");
     frequency.setSliderStyle(juce::Slider::LinearHorizontal);
-    frequency.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 126, 18);
-    frequency.setComponentID(id("freq")); frequency.setTooltip("Frequency in Hz. Double-click to reset; enter a number to tune precisely.");
+    frequency.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    frequency.setComponentID(id("freq")); frequency.setTooltip("Frequency in Hz. Double-click to reset.");
     frequency.setNumDecimalPlacesToDisplay(2);
     frequency.setTextValueSuffix(" Hz");
     frequency.setDoubleClickReturnValue(true, p.state.getParameter(id("freq"))->convertFrom0to1(p.state.getParameter(id("freq"))->getDefaultValue()));
@@ -113,9 +113,9 @@ void BandPanel::resized() {
     const auto w = getWidth();
     enabled.setBounds(w - 90, 3, 75, 40);
     note.setBounds(14, 60, 119, 40); octave.setBounds(w - 63, 60, 48, 40);
-    hz.setBounds(50, 101, w - 100, 20); cents.setBounds(50, 121, w - 100, 18);
+    hz.setBounds(50, 102, w - 100, 20); cents.setBounds(50, 122, w - 100, 18);
     down.setBounds(7, 101, 40, 40); up.setBounds(w - 47, 101, 40, 40);
-    frequency.setBounds(14, 141, w - 28, 36);
+    frequency.setBounds(14, 146, w - 28, 26);
     gain.setBounds(12, 196, (w - 28) / 2, 82); q.setBounds(w / 2 + 2, 196, (w - 28) / 2, 82);
     shape.setBounds(14, 282, w - 28, 40); slope.setBounds(14, 324, w - 28, 40);
 }
