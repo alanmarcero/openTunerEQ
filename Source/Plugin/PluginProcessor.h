@@ -34,11 +34,12 @@ public:
     SpectrumCapture spectrum;
     float artworkPhase() const noexcept { return artworkClock.currentPhase(); }
     std::atomic<float> peak {0};
+    std::atomic<int> activeSelectedBand {0};
 private:
     ArtworkBeatClock artworkClock;
     struct BandValues { std::atomic<float> *enabled, *shape, *freq, *gain, *q, *slope; };
     std::array<BandValues, 5> values;
-    std::atomic<float> *snap, *flats, *bypass, *output, *reference, *analyzerEnabled, *analyzerSource;
+    std::atomic<float> *snap, *flats, *bypass, *output, *reference, *analyzerEnabled, *analyzerSource, *scale, *autoGain, *soloSelected;
     std::atomic<double> uiSampleRate {48000};
     ote::Equalizer engine;
     void process(juce::AudioBuffer<float>&, bool forceBypass);

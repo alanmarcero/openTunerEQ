@@ -9,6 +9,9 @@ struct Settings {
     double a4 = standardPitch;
     bool bypass = false;
     double outputDb = 0;
+    double scale = 1.0;
+    bool autoGain = false;
+    int soloBand = -1;
 };
 double estimateTailSeconds(const Settings&, double sampleRate) noexcept;
 class Equalizer {

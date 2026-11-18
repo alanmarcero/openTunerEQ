@@ -14,13 +14,14 @@ private:
     juce::Image faceplate;
     std::unique_ptr<juce::Drawable> tuningFork;
     juce::TextButton snap {"Snap to notes"}, flats {"Use flats"}, bypass {"Bypass"}, octaveDown {"- Octave"}, octaveUp {"+ Octave"};
-    juce::Slider output, reference;
+    juce::TextButton autoGain {"Auto Gain"}, soloSelected {"Solo Band"};
+    juce::Slider output, reference, scale;
     juce::Label selectedLabel, rangeLabel;
     ResponseGraph graph;
     PianoStrip piano;
     std::array<std::unique_ptr<BandPanel>, 5> panels;
-    std::unique_ptr<params::State::ButtonAttachment> snapAttachment, flatsAttachment, bypassAttachment;
-    std::unique_ptr<params::State::SliderAttachment> outputAttachment, referenceAttachment;
+    std::unique_ptr<params::State::ButtonAttachment> snapAttachment, flatsAttachment, bypassAttachment, autoGainAttachment, soloSelectedAttachment;
+    std::unique_ptr<params::State::SliderAttachment> outputAttachment, referenceAttachment, scaleAttachment;
     juce::TooltipWindow tooltips {this, 700};
     int selected = 0;
     float meter = 0;
