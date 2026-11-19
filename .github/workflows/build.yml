@@ -90,6 +90,40 @@ jobs:
           name: openTunerEQ-Windows-x64
           path: openTunerEQ-Windows-x64.zip
           if-no-files-found: error
+  update-preview:
+    name: Update editor preview
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install editor dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev \
+            libfreetype6-dev libfontconfig1-dev libasound2-dev \
+            libgl1-mesa-dev libglu1-mesa-dev xvfb fonts-dejavu-core
+      - name: Build the plugin tests
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target plugin_tests --parallel
+      - name: Render the factory-default editor
+        run: xvfb-run -a build/plugin_tests --preview docs/screenshots/preview.png
+      - name: Commit the preview when it changes
+        run: |
+          git add -- docs/screenshots/preview.png
+          if git diff --cached --quiet; then
+            echo "Editor preview is unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: refresh editor preview"
+          git pull --rebase origin main
+          git push origin HEAD:main
   release:
     if: ${{ always() && startsWith(github.ref, 'refs/tags/v') && needs.windows.result == 'success' && (needs.core.result == 'skipped' || needs.core.result == 'success') && (needs.macos.result == 'skipped' || needs.macos.result == 'success') }}
     needs: [core, macos, windows]
