@@ -97,12 +97,20 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Notes are the CHANGELOG section for this version (## [1.2.3] or ## v1.2.3),
+      # or the annotated tag message. The screenshot and compare link follow.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           pattern: openTunerEQ-*
           merge-multiple: true
+      - name: Write release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/release_notes.py --tag "$RELEASE_TAG" --output release_notes.md
       - uses: softprops/action-gh-release@v2
         with:
           files: openTunerEQ-*.zip
-          body: '![Native editor](https://raw.githubusercontent.com/alanmarcero/openTunerEQ/${{ github.ref_name }}/docs/screenshots/preview.png)'
-          generate_release_notes: true
+          body_path: release_notes.md
