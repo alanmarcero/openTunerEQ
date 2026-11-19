@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(openTunerEQ VERSION 1.7.1 LANGUAGES C CXX)
+project(openTunerEQ VERSION 1.8.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(MSVC)
@@ -31,12 +31,15 @@ if(OTE_BUILD_PLUGIN)
         PRODUCT_NAME "openTunerEQ" PLUGIN_MANUFACTURER_CODE Amrc PLUGIN_CODE OtEq
         FORMATS ${plugin_formats} VST3_CATEGORIES Fx EQ
         IS_SYNTH FALSE NEEDS_MIDI_INPUT FALSE NEEDS_MIDI_OUTPUT FALSE IS_MIDI_EFFECT FALSE
-        EDITOR_WANTS_KEYBOARD_FOCUS FALSE COPY_PLUGIN_AFTER_BUILD FALSE)
+        EDITOR_WANTS_KEYBOARD_FOCUS TRUE COPY_PLUGIN_AFTER_BUILD FALSE)
     target_sources(openTunerEQ PRIVATE
         Source/Plugin/Parameters.cpp Source/Plugin/PluginProcessor.cpp
+        Source/Plugin/FactoryPresets.cpp
         Source/Plugin/Theme.cpp Source/Plugin/BandPanel.cpp
-        Source/Plugin/ResponseGraph.cpp Source/Plugin/PluginEditor.cpp Source/Plugin/SpectrumAnalyzer.cpp)
-    target_include_directories(openTunerEQ PUBLIC Source/Plugin)
+        Source/Plugin/ResponseGraph.cpp Source/Plugin/PluginEditor.cpp Source/Plugin/SpectrumAnalyzer.cpp
+        Source/suite/ParameterUndo.cpp Source/suite/ABCompare.cpp
+        Source/suite/PresetStore.cpp Source/suite/SuiteBar.cpp)
+    target_include_directories(openTunerEQ PUBLIC Source/Plugin Source/suite)
     target_compile_definitions(openTunerEQ PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
     target_link_libraries(openTunerEQ PRIVATE tuner_core TunerAssets
         PUBLIC juce::juce_audio_utils juce::juce_dsp juce::juce_recommended_config_flags)

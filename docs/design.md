@@ -20,4 +20,4 @@ The audio callback copies stereo samples from the selected tap into a preallocat
 
 ## Delivery and verification
 
-New public repository alanmarcero/openTunerEQ, matching the public plugin family. CMake, unit tests independent of JUCE, processor/state/UI smoke test, macOS universal and Windows builds, pluginval at strictness 5, artifact ZIPs. Tagged releases publish packages. Local native build and pluginval before publication. Document unsigned distribution and installation. Source AGPL-3.0 to match the open-source JUCE licensing option.
+New public repository alanmarcero/openTunerEQ, matching the public plugin family. CMake, unit tests independent of JUCE, processor/state/UI smoke test, macOS universal and Windows builds, pluginval at strictness 5, artifact ZIPs. Tagged releases publish packages. Local native build and pluginval before publication. Document unsigned distribution and installation. Source is MIT. JUCE keeps its own license terms.

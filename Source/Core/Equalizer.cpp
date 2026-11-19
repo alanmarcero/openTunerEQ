@@ -143,14 +143,34 @@ void Equalizer::process(float* const* channels, int channelCount, int samples) n
             }
             band.wet = approach(band.wet, band.target.enabled ? 1 : 0, fadeStep);
             const auto blend = 1.0 - static_cast<double>(band.remaining) / fadeSamples;
-            for (int c = 0; c < channelCount; ++c) {
-                const auto input = wet[static_cast<size_t>(c)];
-                auto filtered = band.banks[static_cast<size_t>(band.active)].process(input, c);
+            // Flat Mid/Side is unity: M = (L+R)/2, S = (L-R)/2, then L = M+S and R = M-S.
+            auto shaped = [&](double input, int channel) {
+                auto filtered = band.banks[static_cast<size_t>(band.active)].process(input, channel);
                 if (band.remaining > 0) {
-                    const auto next = band.banks[static_cast<size_t>(1 - band.active)].process(input, c);
+                    const auto next = band.banks[static_cast<size_t>(1 - band.active)].process(input, channel);
                     filtered += blend * (next - filtered);
                 }
-                wet[static_cast<size_t>(c)] = input + band.wet * (filtered - input);
+                return input + band.wet * (filtered - input);
+            };
+            const auto place = band.target.placement;
+            if (channelCount < 2) {
+                if (place != Placement::Right && place != Placement::Side)
+                    wet[0] = shaped(wet[0], 0);
+            } else if (place == Placement::Left) {
+                wet[0] = shaped(wet[0], 0);
+            } else if (place == Placement::Right) {
+                wet[1] = shaped(wet[1], 1);
+            } else if (place == Placement::Mid || place == Placement::Side) {
+                const auto mid = 0.5 * (wet[0] + wet[1]);
+                const auto side = 0.5 * (wet[0] - wet[1]);
+                const auto filtered = shaped(place == Placement::Mid ? mid : side, 0);
+                const auto m = place == Placement::Mid ? filtered : mid;
+                const auto s = place == Placement::Side ? filtered : side;
+                wet[0] = m + s;
+                wet[1] = m - s;
+            } else {
+                wet[0] = shaped(wet[0], 0);
+                wet[1] = shaped(wet[1], 1);
             }
             if (band.remaining > 0 && --band.remaining == 0) band.active = 1 - band.active;
         }

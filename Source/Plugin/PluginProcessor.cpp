@@ -1,13 +1,26 @@
 #include "PluginProcessor.h"
+#include "FactoryPresets.h"
 #include "PluginEditor.h"
 #include "Notes.h"
+#include <cmath>
+namespace {
+juce::StringArray factoryNames() {
+    juce::StringArray names;
+    for (const auto& preset : factoryPresets()) names.add(preset.name);
+    return names;
+}
+}
 TunerProcessor::TunerProcessor()
     : AudioProcessor(BusesProperties().withInput("Input", juce::AudioChannelSet::stereo(), true)
                                       .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      state(*this, nullptr, "openTunerEQ", params::layout()) {
+      state(*this, nullptr, "openTunerEQ", params::layout()),
+      undoHistory(*this),
+      abCompare([this](juce::MemoryBlock& block) { writeParameters(block); },
+                [this](const juce::MemoryBlock& block) { readParameters(block); }, undoHistory),
+      presetStore("openTunerEQ", factoryNames()) {
     for (int i = 0; i < 5; ++i) {
         auto get = [&](const char* key) { return state.getRawParameterValue(params::bandId(i, key)); };
-        values[static_cast<size_t>(i)] = {get("enabled"), get("shape"), get("freq"), get("gain"), get("q"), get("slope")};
+        values[static_cast<size_t>(i)] = {get("enabled"), get("shape"), get("freq"), get("gain"), get("q"), get("slope"), get("placement")};
     }
     snap = state.getRawParameterValue("snap"); flats = state.getRawParameterValue("flats");
     bypass = state.getRawParameterValue("bypass"); output = state.getRawParameterValue("output");
@@ -17,6 +30,7 @@ TunerProcessor::TunerProcessor()
     scale = state.getRawParameterValue("scale");
     autoGain = state.getRawParameterValue("autoGain");
     soloSelected = state.getRawParameterValue("soloSelected");
+    abCompare.prime();
 }
 void TunerProcessor::prepareToPlay(double rate, int) {
     artworkClock.reset();
@@ -43,6 +57,7 @@ ote::Settings TunerProcessor::readSettings() const noexcept {
         b.shape = static_cast<ote::Shape>(juce::jlimit(0, 6, static_cast<int>(safe(v.shape, 0))));
         b.frequency = safe(v.freq, 440); b.gainDb = safe(v.gain, 0) * result.scale; b.q = safe(v.q, 0.7071f);
         b.slope = params::slopeValues[static_cast<size_t>(juce::jlimit(0, 3, static_cast<int>(safe(v.slope, 0))))];
+        b.placement = static_cast<ote::Placement>(juce::jlimit(0, 4, static_cast<int>(std::lround(safe(v.placement, 0)))));
     }
     return result;
 }
@@ -68,26 +83,104 @@ void TunerProcessor::process(juce::AudioBuffer<float>& buffer, bool forceBypass)
 }
 void TunerProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) { process(buffer, false); }
 void TunerProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) { process(buffer, true); }
-void TunerProcessor::getStateInformation(juce::MemoryBlock& dest) { if (auto xml = state.copyState().createXml()) copyXmlToBinary(*xml, dest); }
-void TunerProcessor::setStateInformation(const void* data, int size) {
-    if (auto xml = getXmlFromBinary(data, size); xml && xml->hasTagName(state.state.getType())) {
-        auto tree = juce::ValueTree::fromXml(*xml);
-        if (!tree.isValid()) return;
-        const std::pair<const char*, float> defaults[] {
-            {"analyzerEnabled", 1.0f}, {"analyzerStyle", 0.0f}, {"analyzerSource", 0.0f},
-            {"analyzerFreeze", 0.0f}, {"analyzerRelease", 1.0f}, {"analyzerTilt", 2.0f},
-            {"scale", 100.0f}, {"autoGain", 0.0f}, {"soloSelected", 0.0f}
-        };
-        for (const auto& [id, def] : defaults) {
-            if (!tree.getChildWithProperty("id", id).isValid()) {
-                juce::ValueTree child("PARAM");
-                child.setProperty("id", id, nullptr);
-                child.setProperty("value", def, nullptr);
-                tree.appendChild(child, nullptr);
-            }
-        }
-        state.replaceState(tree);
+void TunerProcessor::injectDefaults(juce::ValueTree& tree) const {
+    const std::pair<const char*, float> defaults[] {
+        {"analyzerEnabled", 1.0f}, {"analyzerStyle", 0.0f}, {"analyzerSource", 0.0f},
+        {"analyzerFreeze", 0.0f}, {"analyzerRelease", 1.0f}, {"analyzerTilt", 2.0f},
+        {"scale", 100.0f}, {"autoGain", 0.0f}, {"soloSelected", 0.0f}
+    };
+    auto add = [&](const juce::String& id, float value) {
+        if (tree.getChildWithProperty("id", id).isValid()) return;
+        juce::ValueTree child("PARAM");
+        child.setProperty("id", id, nullptr);
+        child.setProperty("value", value, nullptr);
+        tree.appendChild(child, nullptr);
+    };
+    for (const auto& [id, value] : defaults) add(id, value);
+    for (int i = 0; i < 5; ++i) add(params::bandId(i, "placement"), 0.0f);
+}
+void TunerProcessor::writeParameters(juce::MemoryBlock& dest) {
+    dest.reset();
+    if (auto xml = state.copyState().createXml()) copyXmlToBinary(*xml, dest);
+}
+void TunerProcessor::readParameters(const juce::MemoryBlock& block) {
+    auto xml = getXmlFromBinary(block.getData(), static_cast<int>(block.getSize()));
+    if (xml == nullptr || !xml->hasTagName(state.state.getType())) return;
+    if (auto* extra = xml->getChildByName("suite")) xml->removeChildElement(extra, true);
+    auto tree = juce::ValueTree::fromXml(*xml);
+    if (!tree.isValid()) return;
+    injectDefaults(tree);
+    state.replaceState(tree);
+}
+void TunerProcessor::getStateInformation(juce::MemoryBlock& dest) {
+    abCompare.flushActive();
+    if (auto xml = state.copyState().createXml()) {
+        auto* extra = xml->createNewChildElement("suite");
+        extra->setAttribute("program", program);
+        extra->setAttribute("name", presetName);
+        abCompare.writeXml(*extra);
+        copyXmlToBinary(*xml, dest);
     }
+}
+void TunerProcessor::setStateInformation(const void* data, int size) {
+    auto xml = getXmlFromBinary(data, size);
+    if (xml == nullptr || !xml->hasTagName(state.state.getType())) return;
+    auto* extra = xml->getChildByName("suite");
+    const bool hadSuite = extra != nullptr;
+    bool slotsOk = false;
+    if (hadSuite) {
+        program = juce::jlimit(0, juce::jmax(0, getNumPrograms() - 1), extra->getIntAttribute("program", 0));
+        presetName = extra->getStringAttribute("name");
+        slotsOk = abCompare.readXml(*extra);
+        xml->removeChildElement(extra, true);
+    }
+    auto tree = juce::ValueTree::fromXml(*xml);
+    if (!tree.isValid()) return;
+    injectDefaults(tree);
+    state.replaceState(tree);
+    if (!hadSuite || !slotsOk) {
+        program = hadSuite ? program : 0;
+        if (!hadSuite) presetName.clear();
+        abCompare.prime();
+    }
+}
+int TunerProcessor::getNumPrograms() { return static_cast<int>(factoryPresets().size()); }
+const juce::String TunerProcessor::getProgramName(int index) {
+    const auto& presets = factoryPresets();
+    return juce::isPositiveAndBelow(index, static_cast<int>(presets.size())) ? presets[static_cast<size_t>(index)].name : juce::String();
+}
+void TunerProcessor::assignParameter(const juce::String& id, float value) {
+    if (auto* parameter = state.getParameter(id)) parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+}
+void TunerProcessor::applyFactory(int index) {
+    const auto& presets = factoryPresets();
+    if (!juce::isPositiveAndBelow(index, static_cast<int>(presets.size()))) return;
+    auto reset = [&](const juce::String& id) {
+        if (auto* parameter = state.getParameter(id)) parameter->setValueNotifyingHost(parameter->getDefaultValue());
+    };
+    for (int i = 0; i < 5; ++i)
+        for (const char* key : {"enabled", "shape", "freq", "gain", "q", "slope", "placement"}) reset(params::bandId(i, key));
+    for (const char* id : {"output", "bypass", "snap", "scale", "autoGain", "soloSelected"}) reset(id);
+    for (const auto& [id, value] : presets[static_cast<size_t>(index)].values) assignParameter(id, value);
+    program = index;
+    presetName = presets[static_cast<size_t>(index)].name;
+}
+void TunerProcessor::setCurrentProgram(int index) {
+    if (!juce::isPositiveAndBelow(index, getNumPrograms())) return;
+    auto* messages = juce::MessageManager::getInstanceWithoutCreating();
+    if (messages != nullptr && messages->isThisTheMessageThread()) undoHistory.applyChange("Program", [this, index] { applyFactory(index); });
+    else applyFactory(index);
+}
+std::unique_ptr<juce::XmlElement> TunerProcessor::parameterXml() { return state.copyState().createXml(); }
+void TunerProcessor::loadPresetXml(const juce::XmlElement& xml, const juce::String& name) {
+    undoHistory.applyChange("Preset", [this, &xml, &name] {
+        auto tree = juce::ValueTree::fromXml(xml);
+        if (!tree.isValid() || tree.getType() != state.state.getType()) return;
+        if (auto extra = tree.getChildWithName("suite"); extra.isValid()) tree.removeChild(extra, nullptr);
+        injectDefaults(tree);
+        state.replaceState(tree);
+        presetName = name;
+    });
 }
 juce::AudioProcessorParameter* TunerProcessor::getBypassParameter() const { return state.getParameter("bypass"); }
 void TunerProcessor::setParameter(const juce::String& id, float value) {

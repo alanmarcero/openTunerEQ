@@ -145,7 +145,7 @@ void ResponseGraph::paint(juce::Graphics& g) {
                         db = -150.0;
                     }
                 }
-                sum += db;
+                if (settings.bands[i].placement == ote::Placement::Stereo) sum += db;
                 if (step == 0) curves[i].startNewSubPath(x, yFor(db)); else curves[i].lineTo(x, yFor(db));
             }
             if (settings.bypass) sum = 0;
@@ -153,9 +153,16 @@ void ResponseGraph::paint(juce::Graphics& g) {
         }
         auto fill = total; fill.lineTo(p.getRight(), yFor(0)); fill.lineTo(p.getX(), yFor(0)); fill.closeSubPath();
         g.setColour(ui::copper.withAlpha(0.07f)); g.fillPath(fill);
+        const float dashPattern[] = {5.0f, 4.0f};
         for (size_t i = 0; i < 5; ++i) {
-            g.setColour(ui::bandColours[i].withAlpha(static_cast<int>(i) == selected ? 0.6f : 0.22f));
-            g.strokePath(curves[i], juce::PathStrokeType(1.1f));
+            g.setColour(ui::bandColours[i].withAlpha(static_cast<int>(i) == selected ? 0.75f : 0.28f));
+            if (settings.bands[i].placement == ote::Placement::Stereo) {
+                g.strokePath(curves[i], juce::PathStrokeType(1.1f));
+            } else {
+                juce::Path dashed;
+                juce::PathStrokeType(1.15f).createDashedStroke(dashed, curves[i], dashPattern, 2);
+                g.strokePath(dashed, juce::PathStrokeType(1.15f));
+            }
         }
         g.setColour(ui::ink.withAlpha(0.9f)); g.strokePath(total, juce::PathStrokeType(2.0f));
     }
@@ -166,14 +173,25 @@ void ResponseGraph::paint(juce::Graphics& g) {
             g.setColour(color.withAlpha(0.13f)); g.drawLine(pt.x, p.getY(), pt.x, p.getBottom(), 1);
             g.fillEllipse(pt.x - 16, pt.y - 16, 32, 32);
             const auto hz = processor.bandFrequency(i);
-            const auto caption = juce::String(ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats())) + "  " + juce::String(hz, 1) + " Hz";
-            auto label = juce::Rectangle<float>(132, 21).withCentre({juce::jlimit(p.getX() + 66, p.getRight() - 66, pt.x), std::max(p.getY() + 10, pt.y - 27)});
+            const auto place = settings.bands[static_cast<size_t>(i)].placement;
+            auto caption = juce::String(ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats())) + "  " + juce::String(hz, 1) + " Hz";
+            if (place != ote::Placement::Stereo) caption += "  " + params::placements[static_cast<int>(place)];
+            auto label = juce::Rectangle<float>(place == ote::Placement::Stereo ? 132.0f : 188.0f, 21.0f).withCentre({juce::jlimit(p.getX() + 96, p.getRight() - 96, pt.x), std::max(p.getY() + 10, pt.y - 27)});
             g.setColour(ui::background); g.fillRoundedRectangle(label, 4);
             ui::text(g, caption, label, 11, color, juce::Justification::centred, true);
         }
         g.setColour(active ? color : ui::panel); g.fillEllipse(pt.x - 9, pt.y - 9, 18, 18);
         g.setColour(color); g.drawEllipse(pt.x - 9, pt.y - 9, 18, 18, 1.2f);
         ui::text(g, juce::String(i + 1), {pt.x - 9, pt.y - 9, 18, 18}, 11, active ? ui::background : color, juce::Justification::centred, true);
+        const char* mark = nullptr;
+        switch (settings.bands[static_cast<size_t>(i)].placement) {
+            case ote::Placement::Left: mark = "L"; break;
+            case ote::Placement::Right: mark = "R"; break;
+            case ote::Placement::Mid: mark = "M"; break;
+            case ote::Placement::Side: mark = "S"; break;
+            case ote::Placement::Stereo: break;
+        }
+        if (mark != nullptr) ui::text(g, mark, {pt.x + 8, pt.y - 22, 16, 14}, 11, color, juce::Justification::centred, true);
     }
 }
 void ResponseGraph::paintSpectrum(juce::Graphics& g) {

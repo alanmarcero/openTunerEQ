@@ -1,7 +1,7 @@
 #include "PluginEditor.h"
 #include "Notes.h"
 #include <BinaryData.h>
-TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor(p), graph(p), piano(p) {
+TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor(p), graph(p), piano(p), suite(p) {
     setLookAndFeel(&theme);
     faceplate = juce::ImageCache::getFromMemory(BinaryData::analogcyberfaceplate_png, BinaryData::analogcyberfaceplate_pngSize);
     tuningFork = juce::Drawable::createFromImageData(BinaryData::tuningfork_svg, BinaryData::tuningfork_svgSize);
@@ -31,7 +31,7 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     reference.setSliderStyle(juce::Slider::LinearHorizontal); reference.setTextBoxStyle(juce::Slider::TextBoxRight, false, 66, 22);
     reference.setTextValueSuffix(" Hz"); reference.setTooltip("Tuning reference: the frequency of A4. Notes, snapping and cents follow it.");
     referenceAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "a4", reference);
-    for (juce::Component* c : std::initializer_list<juce::Component*>{&graph, &piano, &scale, &output, &reference, &selectedLabel, &rangeLabel, &octaveDown, &octaveUp}) content.addAndMakeVisible(c);
+    for (juce::Component* c : std::initializer_list<juce::Component*>{&graph, &piano, &suite, &scale, &output, &reference, &selectedLabel, &rangeLabel, &octaveDown, &octaveUp}) content.addAndMakeVisible(c);
     selectedLabel.setFont(ui::font(16, true)); selectedLabel.setColour(juce::Label::textColourId, ui::ink);
     rangeLabel.setFont(ui::font(12)); rangeLabel.setColour(juce::Label::textColourId, ui::muted);
     for (int i = 0; i < 5; ++i) {
@@ -45,9 +45,10 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     octaveUp.setTooltip("Tune the selected band up one octave");
     octaveDown.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) - 12); };
     octaveUp.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) + 12); };
-    setResizable(true, true); setResizeLimits(1160, 840, 1740, 1260);
-    if (auto* constrainer = getConstrainer()) constrainer->setFixedAspectRatio(1160.0 / 840.0);
-    setSize(1160, 840);
+    setResizable(true, true); setResizeLimits(1160, 900, 1740, 1350);
+    if (auto* constrainer = getConstrainer()) constrainer->setFixedAspectRatio(1160.0 / 900.0);
+    setSize(1160, 900);
+    setWantsKeyboardFocus(true);
     select(0); timerCallback(); startTimerHz(24);
 }
 TunerEditor::~TunerEditor() { stopTimer(); setLookAndFeel(nullptr); }
@@ -60,7 +61,7 @@ void TunerEditor::select(int band) {
 }
 void TunerEditor::timerCallback() {
     for (auto& panel : panels) panel->refresh();
-    graph.refresh(); piano.repaint();
+    graph.refresh(); piano.repaint(); suite.refresh();
     const auto hz = processor.bandFrequency(selected); const auto midi = ote::nearestNote(hz, processor.referencePitch());
     selectedLabel.setText("Band " + juce::String(selected + 1) + "  /  " + juce::String(ote::noteName(midi, processor.usesFlats())), juce::dontSendNotification);
     selectedLabel.setColour(juce::Label::textColourId, ui::bandColours[static_cast<size_t>(selected)]);
@@ -71,42 +72,52 @@ void TunerEditor::timerCallback() {
     repaint();
 }
 void TunerEditor::resized() {
-    content.setBounds(0, 0, 1160, 840); content.setTransform(juce::AffineTransform::scale(getWidth() / 1160.0f));
-    snap.setBounds(348, 24, 114, 40); flats.setBounds(468, 24, 86, 40);
-    soloSelected.setBounds(560, 24, 86, 40); autoGain.setBounds(652, 24, 86, 40);
-    scale.setBounds(778, 26, 116, 36);
-    output.setBounds(944, 26, 122, 36);
-    bypass.setBounds(1072, 24, 68, 40);
-    graph.setBounds(24, 94, 1112, 242);
-    for (int i = 0; i < 5; ++i) panels[static_cast<size_t>(i)]->setBounds(24 + i * 224, 340, 216, 366);
-    selectedLabel.setBounds(25, 735, 205, 25); rangeLabel.setBounds(25, 761, 205, 21);
-    octaveDown.setBounds(25, 780, 90, 40); octaveUp.setBounds(123, 780, 90, 40);
-    piano.setBounds(240, 739, 896, 74);
-    reference.setBounds(966, 710, 170, 26);
+    content.setBounds(0, 0, 1160, 900); content.setTransform(juce::AffineTransform::scale(getWidth() / 1160.0f));
+    snap.setBounds(348, 16, 114, 40); flats.setBounds(468, 16, 86, 40);
+    soloSelected.setBounds(560, 16, 86, 40); autoGain.setBounds(652, 16, 86, 40);
+    scale.setBounds(778, 18, 116, 36);
+    output.setBounds(944, 18, 122, 36);
+    bypass.setBounds(1072, 16, 68, 40);
+    suite.setBounds(24, 70, 1112, 40);
+    graph.setBounds(24, 118, 1112, 228);
+    for (int i = 0; i < 5; ++i) panels[static_cast<size_t>(i)]->setBounds(24 + i * 224, 354, 216, 400);
+    selectedLabel.setBounds(25, 764, 205, 22); rangeLabel.setBounds(25, 786, 205, 18);
+    octaveDown.setBounds(25, 812, 90, 40); octaveUp.setBounds(123, 812, 90, 40);
+    piano.setBounds(240, 764, 896, 88);
+    reference.setBounds(966, 734, 170, 26);
+}
+bool TunerEditor::keyPressed(const juce::KeyPress& key) {
+    const auto command = juce::ModifierKeys::commandModifier;
+    if (dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr) return false;
+    if (key == juce::KeyPress('z', command, 0)) { processor.history().undo(); suite.refresh(); return true; }
+    if (key == juce::KeyPress('z', command | juce::ModifierKeys::shiftModifier, 0)
+        || key == juce::KeyPress('y', command, 0)) {
+        processor.history().redo(); suite.refresh(); return true;
+    }
+    return false;
 }
 void TunerEditor::paint(juce::Graphics& g) {
     g.fillAll(ui::background);
     g.addTransform(juce::AffineTransform::scale(getWidth() / 1160.0f));
-    g.setOpacity(0.9f); g.drawImage(faceplate, juce::Rectangle<float>(0, 0, 1160, 840), juce::RectanglePlacement::fillDestination); g.setOpacity(1);
-    g.setColour(ui::background.withAlpha(0.88f)); g.fillRect(0, 0, 1160, 840);
-    g.setColour(ui::copper.withAlpha(0.35f)); g.drawHorizontalLine(82, 24, 1136);
-    g.setColour(ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(8, 8, 1144, 824, 8, 1);
+    g.setOpacity(0.9f); g.drawImage(faceplate, juce::Rectangle<float>(0, 0, 1160, 900), juce::RectanglePlacement::fillDestination); g.setOpacity(1);
+    g.setColour(ui::background.withAlpha(0.88f)); g.fillRect(0, 0, 1160, 900);
+    g.setColour(ui::copper.withAlpha(0.35f)); g.drawHorizontalLine(64, 24, 1136);
+    g.setColour(ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(8, 8, 1144, 884, 8, 1);
     g.setOpacity(1.0f);
     if (tuningFork) {
         const float decay = 1.0f - processor.artworkPhase();
-        const float size = 50.0f + 10.0f * decay * decay;
-        const auto bounds = juce::Rectangle<float>(size, size).withCentre({50.0f, 43.0f});
+        const float size = 46.0f + 8.0f * decay * decay;
+        const auto bounds = juce::Rectangle<float>(size, size).withCentre({48.0f, 36.0f});
         tuningFork->drawWithin(g, bounds, juce::RectanglePlacement::centred, 0.78f + 0.22f * decay);
     }
-    ui::text(g, "openTunerEQ", {91, 16, 250, 34}, 30, ui::ink, juce::Justification::centredLeft, true);
-    ui::text(g, "VICANEK MATCHED ANALOG FILTER ENGINE", {93, 50, 250, 18}, 11, ui::copper);
-    ui::text(g, "Scale", {742, 31, 36, 24}, 11, ui::muted);
-    ui::text(g, "Out", {900, 31, 42, 24}, 11, ui::muted, juce::Justification::centredRight);
+    ui::text(g, "openTunerEQ", {84, 8, 250, 28}, 26, ui::ink, juce::Justification::centredLeft, true);
+    ui::text(g, "VICANEK MATCHED ANALOG FILTER ENGINE", {86, 36, 250, 16}, 11, ui::copper);
+    ui::text(g, "Scale", {742, 22, 36, 24}, 11, ui::muted);
+    ui::text(g, "Out", {900, 22, 42, 24}, 11, ui::muted, juce::Justification::centredRight);
     const auto db = juce::Decibels::gainToDecibels(meter, -60.0f);
-    g.setColour(ui::muted.withAlpha(0.2f)); g.fillRoundedRectangle(944, 65, 122, 5, 2.5f);
-    g.setColour(db > 0 ? juce::Colour(0xffe98779) : juce::Colour(0xff48f0c8)); g.fillRoundedRectangle(944, 65, juce::jlimit(0.0f, 122.0f, (db + 60) / 60 * 122), 5, 2.5f);
-    ui::text(g, "Choose a key for the selected band. The keyboard follows its octave.", {26, 709, 880, 24}, 13, ui::muted);
-    ui::text(g, "Alan Marcero", {25, 820, 220, 15}, 10, ui::muted);
-    ui::text(g, "A4", {930, 709, 30, 24}, 12, ui::muted, juce::Justification::centredRight, true);
-    ui::text(g, "12-tone equal temperament   /   v" JucePlugin_VersionString, {660, 820, 476, 15}, 10, ui::muted, juce::Justification::centredRight);
+    g.setColour(ui::muted.withAlpha(0.2f)); g.fillRoundedRectangle(944, 56, 122, 5, 2.5f);
+    g.setColour(db > 0 ? juce::Colour(0xffe98779) : juce::Colour(0xff48f0c8)); g.fillRoundedRectangle(944, 56, juce::jlimit(0.0f, 122.0f, (db + 60) / 60 * 122), 5, 2.5f);
+    ui::text(g, "Alan Marcero", {25, 876, 220, 15}, 10, ui::muted);
+    ui::text(g, "A4", {930, 732, 30, 24}, 12, ui::muted, juce::Justification::centredRight, true);
+    ui::text(g, "12-tone equal temperament   /   v" JucePlugin_VersionString, {660, 876, 476, 15}, 10, ui::muted, juce::Justification::centredRight);
 }

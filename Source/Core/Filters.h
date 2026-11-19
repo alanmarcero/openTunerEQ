@@ -2,6 +2,7 @@
 #include <array>
 namespace ote {
 enum class Shape { Bell, LowShelf, HighShelf, HighPass, LowPass, Notch, BandPass };
+enum class Placement { Stereo, Left, Right, Mid, Side };
 struct BandSettings {
     bool enabled = true;
     Shape shape = Shape::Bell;
@@ -9,6 +10,7 @@ struct BandSettings {
     double gainDb = 0.0;
     double q = 0.7071067811865476;
     int slope = 12;
+    Placement placement = Placement::Stereo;
 };
 bool usesGain(Shape shape) noexcept;
 bool isCut(Shape shape) noexcept;
