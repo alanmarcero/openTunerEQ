@@ -17,6 +17,7 @@ State::ParameterLayout layout() {
         juce::NormalisableRange<float> qRange(0.1f, 18.0f, 0.01f); qRange.setSkewForCentre(1.0f);
         result.add(std::make_unique<juce::AudioParameterFloat>(id("q"), prefix + "Q", qRange, 0.7071f));
         result.add(std::make_unique<juce::AudioParameterChoice>(id("slope"), prefix + "Slope", slopes, 0));
+        result.add(std::make_unique<juce::AudioParameterChoice>(id("placement"), prefix + "Placement", placements, 0));
     }
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("snap", 1), "Snap to notes", true));
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("flats", 1), "Flat note spelling", false));

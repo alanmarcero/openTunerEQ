@@ -24,12 +24,12 @@ private:
     bool selected = false, updating = false;
     juce::Colour colour;
     juce::TextButton enabled {"On"}, down {"-"}, up {"+"};
-    juce::ComboBox note, octave, shape, slope;
+    juce::ComboBox note, octave, shape, slope, placement;
     NoteSlider frequency;
     juce::Slider gain, q;
     juce::Label hz, cents;
     std::unique_ptr<params::State::ButtonAttachment> enabledAttachment;
-    std::unique_ptr<params::State::ComboBoxAttachment> shapeAttachment, slopeAttachment;
+    std::unique_ptr<params::State::ComboBoxAttachment> shapeAttachment, slopeAttachment, placementAttachment;
     std::unique_ptr<params::State::SliderAttachment> frequencyAttachment, gainAttachment, qAttachment;
     bool lastFlats = false;
     void populateNotes();

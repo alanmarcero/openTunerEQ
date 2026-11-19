@@ -13,8 +13,10 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     octave.setTooltip("Octave (C4 is middle C)");
     for (int i = 0; i <= 10; ++i) octave.addItem(juce::String(i), i + 1);
     populateNotes();
-    shape.addItemList(params::shapes, 1); slope.addItemList(params::slopes, 1);
+    shape.addItemList(params::shapes, 1); slope.addItemList(params::slopes, 1); placement.addItemList(params::placements, 1);
     shape.setTooltip("Filter shape"); slope.setTooltip("Cut steepness in dB per octave. 96 is steep, not an ideal brick wall.");
+    placement.setComponentID(id("placement"));
+    placement.setTooltip("Stereo, Left, Right, Mid, or Side. Mid and Side keep a centered signal unchanged when the band is flat. Stereo is the default.");
     frequency.setSliderStyle(juce::Slider::LinearHorizontal);
     frequency.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     frequency.setComponentID(id("freq")); frequency.setTooltip("Frequency in Hz. Double-click to reset.");
@@ -33,10 +35,11 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     q.setDoubleClickReturnValue(true, 0.7071); q.setComponentID(id("q")); q.setTooltip("Width / resonance. Higher Q is narrower. Steep cuts use fixed Butterworth Q.");
     hz.setFont(ui::font(17, true)); hz.setColour(juce::Label::textColourId, ui::ink); hz.setJustificationType(juce::Justification::centred);
     cents.setFont(ui::font(11)); cents.setColour(juce::Label::textColourId, ui::muted); cents.setJustificationType(juce::Justification::centred);
-    for (juce::Component* c : std::initializer_list<juce::Component*>{&enabled, &note, &octave, &down, &up, &frequency, &gain, &q, &shape, &slope, &hz, &cents}) addAndMakeVisible(c);
+    for (juce::Component* c : std::initializer_list<juce::Component*>{&enabled, &placement, &note, &octave, &down, &up, &frequency, &gain, &q, &shape, &slope, &hz, &cents}) addAndMakeVisible(c);
     enabledAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, id("enabled"), enabled);
     shapeAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, id("shape"), shape);
     slopeAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, id("slope"), slope);
+    placementAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, id("placement"), placement);
     frequencyAttachment = std::make_unique<params::State::SliderAttachment>(p.state, id("freq"), frequency);
     gainAttachment = std::make_unique<params::State::SliderAttachment>(p.state, id("gain"), gain);
     qAttachment = std::make_unique<params::State::SliderAttachment>(p.state, id("q"), q);
@@ -104,18 +107,20 @@ void BandPanel::paint(juce::Graphics& g) {
     g.setColour(selected ? colour.withAlpha(0.8f) : ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(area, 9, selected ? 1.5f : 1.0f);
     g.setColour(colour.withAlpha(enabled.getToggleState() ? 1.0f : 0.25f)); g.fillRoundedRectangle(15, 18, 6, 6, 3);
     ui::text(g, "Band " + juce::String(index + 1), {28, 10, 95, 22}, 13, ui::ink, juce::Justification::centredLeft, true);
-    ui::text(g, "Note", {16, 44, 100, 16}, 12, ui::muted);
-    ui::text(g, "Octave", {153, 44, 50, 16}, 12, ui::muted);
-    ui::text(g, "Gain", {15, 177, 83, 18}, 12, ui::muted, juce::Justification::centred);
-    ui::text(g, "Q / width", {115, 177, 83, 18}, 12, ui::muted, juce::Justification::centred);
+    ui::text(g, "Place", {16, 32, 70, 14}, 12, ui::muted);
+    ui::text(g, "Note", {16, 90, 100, 16}, 12, ui::muted);
+    ui::text(g, "Octave", {153, 90, 50, 16}, 12, ui::muted);
+    ui::text(g, "Gain", {15, 198, 83, 16}, 12, ui::muted, juce::Justification::centred);
+    ui::text(g, "Q / width", {115, 198, 83, 16}, 12, ui::muted, juce::Justification::centred);
 }
 void BandPanel::resized() {
     const auto w = getWidth();
-    enabled.setBounds(w - 90, 3, 75, 40);
-    note.setBounds(14, 60, 119, 40); octave.setBounds(w - 63, 60, 48, 40);
-    hz.setBounds(50, 102, w - 100, 20); cents.setBounds(50, 122, w - 100, 18);
-    down.setBounds(7, 101, 40, 40); up.setBounds(w - 47, 101, 40, 40);
-    frequency.setBounds(14, 146, w - 28, 26);
-    gain.setBounds(12, 196, (w - 28) / 2, 82); q.setBounds(w / 2 + 2, 196, (w - 28) / 2, 82);
-    shape.setBounds(14, 282, w - 28, 40); slope.setBounds(14, 324, w - 28, 40);
+    enabled.setBounds(w - 90, 2, 75, 40);
+    placement.setBounds(14, 46, w - 28, 40);
+    note.setBounds(14, 106, 119, 40); octave.setBounds(w - 63, 106, 48, 40);
+    hz.setBounds(50, 148, w - 100, 20); cents.setBounds(50, 166, w - 100, 16);
+    down.setBounds(7, 146, 40, 40); up.setBounds(w - 47, 146, 40, 40);
+    frequency.setBounds(14, 186, w - 28, 24);
+    gain.setBounds(12, 214, (w - 28) / 2, 78); q.setBounds(w / 2 + 2, 214, (w - 28) / 2, 78);
+    shape.setBounds(14, 300, w - 28, 40); slope.setBounds(14, 348, w - 28, 40);
 }
