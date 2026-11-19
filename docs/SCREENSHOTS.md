@@ -19,9 +19,8 @@ Run `build/plugin_tests assets/native-ui.png` after a Release build to reproduce
 
 ## OpenVST Manager preview
 
-OpenVST Manager shows `docs/screenshots/preview.png` from `main` (see `screenshotPath` in its catalog), and the GitHub release body and README hero point at the same file. This is the single image to keep current. Refresh it with the main editor capture whenever the UI changes, and commit it before tagging a release:
+OpenVST Manager shows `docs/screenshots/preview.png` from `main` (see `screenshotPath` in its catalog), and the GitHub release body and README hero point at the same file. This is the single image to keep current. It is the editor at its default 1160 × 900 size on the factory Flat patch. Pushes to `main` refresh it from `update-preview`. To capture it locally after a Release build:
 
 ```sh
-mkdir -p build/shots && build/plugin_tests build/shots/native-ui.png
-cp build/shots/native-ui.png docs/screenshots/preview.png
+xvfb-run -a build/plugin_tests --preview docs/screenshots/preview.png
 ```

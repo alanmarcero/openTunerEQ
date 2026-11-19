@@ -74,8 +74,52 @@ void checkButtonLayout(const juce::Component& parent, int minimum) {
     }
 }
 
+void saveFactoryPreview(const char* path) {
+    TunerProcessor processor;
+    processor.setCurrentProgram(0);
+    processor.history().manager().clearUndoHistory();
+    processor.prepareToPlay(48000, 512);
+    processor.spectrum.setActive(true);
+    juce::AudioBuffer<float> audio(2, 512);
+    juce::MidiBuffer midi;
+    juce::Random random(5412);
+    double lowNoise = 0;
+    for (int block = 0; block < 96; ++block) {
+        for (int i = 0; i < 512; ++i) {
+            const auto t = (block * 512 + i) / 48000.0;
+            double value = 0;
+            const auto beat = std::fmod(t, 0.5);
+            for (double hz : {65.406, 130.813, 164.814, 195.998, 261.626})
+                for (int harmonic = 1; harmonic <= 12; ++harmonic)
+                    value += 0.025 / harmonic * (0.35 + 0.65 * std::exp(-beat * 6)) * std::sin(2 * juce::MathConstants<double>::pi * hz * harmonic * t);
+            const auto noise = random.nextFloat() * 2 - 1;
+            lowNoise = 0.985 * lowNoise + 0.015 * noise;
+            value += 0.07 * lowNoise + 0.03 * noise * (0.3 + 0.7 * std::exp(-std::fmod(t + 0.25, 0.5) * 25));
+            value += 0.15 * std::exp(-beat * 16) * std::sin(2 * juce::MathConstants<double>::pi * 55 * t);
+            audio.setSample(0, i, static_cast<float>(value));
+            audio.setSample(1, i, static_cast<float>(value));
+        }
+        processor.processBlock(audio, midi);
+    }
+    juce::Desktop::getInstance().setGlobalScaleFactor(1.0f);
+    std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
+    require(editor != nullptr && editor->getWidth() == 1160 && editor->getHeight() == 900, "editor stays at its default size");
+    const auto snapshot = editor->createComponentSnapshot(editor->getLocalBounds(), true, 1.0f);
+    require(snapshot.getWidth() == 1160 && snapshot.getHeight() == 900, "preview is the default editor size");
+    auto file = juce::File::getCurrentWorkingDirectory().getChildFile(path);
+    file.getParentDirectory().createDirectory();
+    file.deleteFile();
+    juce::FileOutputStream stream(file);
+    require(stream.openedOk() && juce::PNGImageFormat().writeImageToStream(snapshot, stream), "factory preview saved");
+}
+
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
+    if (argc == 3 && juce::String(argv[1]) == "--preview") {
+        saveFactoryPreview(argv[2]);
+        std::cout << "PASS: factory default editor preview\n";
+        return 0;
+    }
     TunerProcessor processor;
     auto* analyzerEnabled = processor.state.getRawParameterValue("analyzerEnabled");
     require(analyzerEnabled != nullptr && analyzerEnabled->load() == 1.0f, "live analyzer is available and on by default");
