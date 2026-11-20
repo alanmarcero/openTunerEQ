@@ -46,7 +46,7 @@ public:
     std::atomic<int> activeSelectedBand {0};
 private:
     ArtworkBeatClock artworkClock;
-    struct BandValues { std::atomic<float> *enabled, *shape, *freq, *gain, *q, *slope, *placement; };
+    struct BandValues { std::atomic<float> *enabled, *shape, *freq, *gain, *q, *slope, *placement, *dyn, *drive; };
     std::array<BandValues, 5> values;
     suite::ParameterUndo undoHistory;
     suite::ABCompare abCompare;
@@ -58,7 +58,8 @@ private:
     void injectDefaults(juce::ValueTree&) const;
     void applyFactory(int index);
     void assignParameter(const juce::String& id, float value);
-    std::atomic<float> *snap, *flats, *bypass, *output, *reference, *analyzerEnabled, *analyzerSource, *scale, *autoGain, *soloSelected;
+    std::atomic<float> *snap, *flats, *bypass, *output, *reference, *analyzerEnabled, *analyzerSource, *scale, *autoGain, *soloSelected,
+        *phaseComp, *qMode, *dynThreshold;
     std::atomic<double> uiSampleRate {48000};
     ote::Equalizer engine;
     void process(juce::AudioBuffer<float>&, bool forceBypass);

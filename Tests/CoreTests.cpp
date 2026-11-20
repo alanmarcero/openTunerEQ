@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <numbers>
 #include <random>
 #include <vector>
 
@@ -59,7 +60,8 @@ int main() {
     const auto analogDb = [](const BandSettings& b, double hz) {
         const std::complex<double> j(0, hz / b.frequency);
         const auto a = std::pow(10.0, b.gainDb / 40.0);
-        const auto h = b.shape == Shape::Bell ? (j * j + j * a / b.q + 1.0) / (j * j + j / (a * b.q) + 1.0)
+        const auto bellPoleQ = b.q / std::sqrt(a);
+        const auto h = b.shape == Shape::Bell ? (j * j + j * (a * a / bellPoleQ) + 1.0) / (j * j + j / bellPoleQ + 1.0)
                      : b.shape == Shape::LowPass ? 1.0 / (j * j + j / b.q + 1.0)
                      : j * j / (j * j + j / b.q + 1.0);
         return 20 * std::log10(std::abs(h));
@@ -68,7 +70,8 @@ int main() {
     top.shape = Shape::Bell; top.frequency = 16000; top.gainDb = 12; top.q = 0.7071;
     for (double hz : {4000.0, 8000.0, 12000.0, 19000.0}) near(responseDb(top, 44100, hz), analogDb(top, hz), 1.5, "matched bell near Nyquist");
     top.shape = Shape::LowPass; top.frequency = 10000; top.q = 4;
-    for (double hz : {5000.0, 15000.0, 19900.0}) near(responseDb(top, 44100, hz), analogDb(top, hz), 1.5, "matched low-pass near Nyquist");
+    for (double hz : {5000.0, 10000.0}) near(responseDb(top, 44100, hz), analogDb(top, hz), 1.0, "matched low-pass passband and resonance");
+    check(responseDb(top, 44100, 22050) < -250.0, "matched low-pass reaches -inf dB at Nyquist");
     top.shape = Shape::HighPass; top.frequency = 16000; top.q = 0.7071;
     for (double hz : {1600.0, 8000.0, 19900.0}) near(responseDb(top, 44100, hz), analogDb(top, hz), 1.0, "matched high-pass keeps 12 dB/oct");
     s.shape = Shape::LowShelf; s.gainDb = -12;
@@ -102,7 +105,7 @@ int main() {
     settings.bands[0].gainDb = 24;
     settings.bands[0].q = 18;
     const auto tail = estimateTailSeconds(settings, 48000);
-    check(tail > 10, "resonant bass tail exceeds two seconds");
+    check(tail > 2, "resonant bass tail exceeds two seconds");
     eq.prepare(48000); eq.setSettings(settings, true);
     double phase = 0;
     for (int block = 0; block < 2000; ++block) {
@@ -265,6 +268,274 @@ int main() {
         auto centered = lowLeft;
         eq.process(low, 2, 48000);
         for (int i = 0; i < 48000; ++i) check(lowLeft[static_cast<size_t>(i)] == centered[static_cast<size_t>(i)], "Side high-pass keeps low mid information");
+    }
+    {
+        Biquad filter;
+        BandSettings lowNotch;
+        lowNotch.shape = Shape::Notch;
+        lowNotch.q = 18.0;
+        double maxJump = 0.0;
+        double prevOut = 0.0;
+        for (int i = 0; i < 16384; ++i) {
+            if (i % 16 == 0) {
+                const int step = (i / 16) % 24;
+                lowNotch.frequency = noteFrequency(24 + (step < 12 ? step * 2 : (24 - step) * 2), standardPitch);
+                filter.coefficients = designFilter(lowNotch, 48000.0).stages[0];
+            }
+            const double in = 0.25 * std::sin(2.0 * 3.141592653589793 * 32.7032 * i / 48000.0);
+            const double out = filter.process(in);
+            if (i > 0) maxJump = std::max(maxJump, std::abs(out - prevOut));
+            prevOut = out;
+        }
+        check(maxJump < 0.08, "ZDF TPT SVF stays click-free across fast pitch-snapped notch sweeps");
+
+        Biquad subNotch;
+        lowNotch.frequency = 20.601722;
+        subNotch.coefficients = designFilter(lowNotch, 192000.0).stages[0];
+        double dcOut = 0.0;
+        for (int i = 0; i < 1600000; ++i) dcOut = subNotch.process(0.5);
+        near(dcOut, 0.5, 1.0e-12, "sub-bass high-Q notch preserves exact DC in ZDF TPT SVF");
+    }
+    {
+        BandSettings lowShelf;
+        lowShelf.shape = Shape::LowShelf;
+        lowShelf.frequency = 100.0;
+        lowShelf.gainDb = 6.0;
+        lowShelf.q = 4.0;
+        check(usesQ(lowShelf), "low shelf enables user Q");
+        check(responseDb(lowShelf, 48000.0, 82.0) > 9.5, "resonant low shelf produces Pultec peak");
+        check(responseDb(lowShelf, 48000.0, 130.0) < -1.5, "resonant low shelf produces Pultec dip");
+
+        BandSettings airShelf;
+        airShelf.shape = Shape::HighShelf;
+        airShelf.frequency = 15000.0;
+        airShelf.gainDb = 12.0;
+        airShelf.q = 2.0;
+        check(usesQ(airShelf), "high shelf enables user Q");
+        const auto analogHighShelfDb = [](const BandSettings& b, double hz) {
+            const std::complex<double> j(0.0, hz / b.frequency);
+            const auto a = std::pow(10.0, b.gainDb / 40.0);
+            const auto rootA = std::sqrt(a);
+            const auto h = a * (a * j * j + (rootA / b.q) * j + 1.0) / (j * j + (rootA / b.q) * j + a);
+            return 20.0 * std::log10(std::abs(h));
+        };
+        for (double hz : {6000.0, 12000.0, 15000.0, 19500.0}) {
+            near(responseDb(airShelf, 44100.0, hz), analogHighShelfDb(airShelf, hz), 1.0, "matched air-band high shelf avoids Nyquist cramping");
+        }
+        BandSettings airCut = airShelf;
+        airCut.gainDb = -12.0;
+        near(responseDb(airShelf, 44100.0, 12000.0) + responseDb(airCut, 44100.0, 12000.0), 0.0, 1.0e-6, "matched shelf boost/cut reciprocity");
+    }
+    {
+        BandSettings boostBell;
+        boostBell.shape = Shape::Bell;
+        boostBell.frequency = 1000.0;
+        boostBell.gainDb = 24.0;
+        boostBell.q = 4.0;
+        check(responseDb(boostBell, 48000.0, 1122.46) > 12.0, "symmetric root-Q bell boost stays warm instead of 4x narrow spike");
+
+        BandSettings cutBell = boostBell;
+        cutBell.gainDb = -24.0;
+        check(responseDb(cutBell, 48000.0, 1259.92) > -1.0, "symmetric root-Q bell cut stays surgical on neighboring notes");
+
+        BandSettings constantBell = boostBell;
+        constantBell.qMode = QMode::Constant;
+        BandSettings propBell = boostBell;
+        propBell.qMode = QMode::Proportional;
+        near(responseDb(constantBell, 48000.0, 1000.0), 24.0, 1.0e-6, "constant-Q bell preserves exact center gain");
+        near(responseDb(propBell, 48000.0, 1000.0), 24.0, 1.0e-6, "proportional-Q bell preserves exact center gain");
+        check(responseDb(boostBell, 48000.0, 1122.46) > responseDb(constantBell, 48000.0, 1122.46)
+              && responseDb(constantBell, 48000.0, 1122.46) > responseDb(propBell, 48000.0, 1122.46),
+              "Q modes order boost width from warm symmetric to constant to proportional");
+    }
+    {
+        BandSettings lp12;
+        lp12.shape = Shape::LowPass;
+        lp12.frequency = 4000.0;
+        lp12.slope = 12;
+        const auto d12 = designFilter(lp12, 48000.0);
+        auto totalMag = [&](const FilterDesign& d, double w) {
+            double m = 1.0;
+            for (int i = 0; i < d.count; ++i) m *= d.stages[static_cast<size_t>(i)].magnitude(w);
+            return m;
+        };
+        const double ratio = totalMag(d12, 3.141592653589793 - 1.0e-4) / totalMag(d12, 3.141592653589793 - 2.0e-4);
+        near(ratio, 0.25, 1.0e-3, "12 dB/oct low-pass has exact double zero at Nyquist");
+
+        for (int slope : {48, 96}) {
+            BandSettings steepLp = lp12;
+            steepLp.slope = slope;
+            check(responseDb(steepLp, 48000.0, 24000.0) < -250.0, "steep low-pass eliminates Nyquist stopband leakage");
+            check(responseDb(steepLp, 48000.0, 22000.0) < (slope == 48 ? -120.0 : -240.0), "steep low-pass rolls off cleanly into Nyquist");
+        }
+    }
+    {
+        // L = sin, R = 0 is M = S = sin / 2. If Mid and Side rotate equally, R stays silent.
+        auto rightLeak = [&](Placement placement, Shape shape, int slope, bool compensate) {
+            Settings cut = isolated();
+            cut.bands[0].shape = shape;
+            cut.bands[0].slope = slope;
+            cut.bands[0].frequency = shape == Shape::HighPass ? 500.0 : 2000.0;
+            cut.bands[0].placement = placement;
+            cut.phaseCompensation = compensate;
+            Equalizer eq;
+            eq.prepare(48000); eq.setSettings(cut, true);
+            std::vector<float> left(16384), right(16384);
+            sine(left, right, 1000, 0.1f, 0);
+            const auto dry = rmsFrom(left, 8192);
+            if (placement == Placement::Side) std::fill(right.begin(), right.end(), 0.0f);
+            float* channels[] = {left.data(), right.data()};
+            eq.process(channels, 2, 16384);
+            std::vector<float> difference(16384);
+            for (size_t i = 0; i < difference.size(); ++i)
+                difference[i] = placement == Placement::Side ? right[i] : left[i] - right[i];
+            return rmsFrom(difference, 8192) / dry;
+        };
+        for (auto shape : {Shape::HighPass, Shape::LowPass}) {
+            for (int slope : {12, 24, 48, 96}) {
+                check(rightLeak(Placement::Side, shape, slope, false) > 0.15, "uncompensated Side cut smears a one-sided transient");
+                check(rightLeak(Placement::Side, shape, slope, true) < 0.12, "phase-compensated Side cut keeps Mid and Side aligned");
+                check(rightLeak(Placement::Left, shape, slope, true) < 0.2, "phase-compensated Left cut keeps a centered signal centered");
+            }
+        }
+        check(designPhaseCompensator(isolated().bands[0], 48000).count == 0, "bells need no phase compensation");
+    }
+    {
+        auto levelDb = [&](const Settings& eqSettings, double hz) {
+            Equalizer eq;
+            eq.prepare(48000); eq.setSettings(eqSettings, true);
+            std::vector<float> left(144000), right(144000);
+            sine(left, right, hz, 0.05f, 0);
+            float* channels[] = {left.data(), right.data()};
+            eq.process(channels, 2, 144000);
+            return 20 * std::log10(rmsFrom(left, 120000) / (0.05 / std::sqrt(2.0)));
+        };
+        Settings air = isolated();
+        air.bands[0].frequency = 16000; air.bands[0].gainDb = 10;
+        air.autoGain = true;
+        check(levelDb(air, 50) > -1.5, "auto-gain does not duck sub-bass for an air boost");
+        Settings broad = isolated();
+        broad.bands[0].shape = Shape::LowShelf; broad.bands[0].frequency = 19000; broad.bands[0].gainDb = 9;
+        broad.autoGain = true;
+        near(levelDb(broad, 1000), 0, 1.0, "auto-gain matches loudness for a broadband boost");
+        broad.bands[0].gainDb = -9;
+        near(levelDb(broad, 1000), 0, 1.0, "auto-gain matches loudness for a broadband cut");
+    }
+    {
+        auto dynamicDb = [&](double rangeDb, double hz, float amplitude) {
+            Settings dynamic = isolated();
+            dynamic.bands[0].q = 4;
+            dynamic.bands[0].dynamicDb = rangeDb;
+            dynamic.dynamicThresholdDb = -30;
+            dynamic.snap = false;
+            Equalizer eq;
+            eq.prepare(48000); eq.setSettings(dynamic, true);
+            std::vector<float> left(48000), right(48000);
+            sine(left, right, hz, amplitude, 0);
+            float* channels[] = {left.data(), right.data()};
+            eq.process(channels, 2, 48000);
+            return 20 * std::log10(rmsFrom(left, 36000) / (amplitude / std::sqrt(2.0)));
+        };
+        near(dynamicDb(-12, 1000, 0.5f), -12, 1.0, "dynamic band suppresses a loud resonance on its note");
+        near(dynamicDb(-12, 1000, 0.005f), 0, 0.1, "dynamic band leaves a quiet note untouched");
+        near(dynamicDb(-12, 100, 0.5f), 0, 0.5, "dynamic band ignores loud content away from its note");
+        near(dynamicDb(6, 1000, 0.5f), 6, 1.0, "dynamic band enhances upward above threshold");
+    }
+    {
+        Settings morph = isolated();
+        morph.snap = false;
+        morph.bands[0].frequency = 40; morph.bands[0].gainDb = 6;
+        Equalizer eq;
+        eq.prepare(48000); eq.setSettings(morph, true);
+        std::vector<float> left(48000), right(48000);
+        sine(left, right, 40, 0.2f, 0);
+        float* channels[] = {left.data(), right.data()};
+        eq.process(channels, 2, 24000);
+        morph.bands[0].shape = Shape::LowShelf;
+        eq.setSettings(morph);
+        float* rest[] = {left.data() + 24000, right.data() + 24000};
+        eq.process(rest, 2, 24000);
+        Equalizer settledShelf;
+        settledShelf.prepare(48000); settledShelf.setSettings(morph, true);
+        std::vector<float> refLeft(48000), refRight(48000);
+        sine(refLeft, refRight, 40, 0.2f, 0);
+        float* refChannels[] = {refLeft.data(), refRight.data()};
+        settledShelf.process(refChannels, 2, 48000);
+        double worst = 0;
+        for (size_t i = 24000; i < 30000; ++i) worst = std::max(worst, std::abs(static_cast<double>(left[i]) - refLeft[i]));
+        check(worst < 0.1, "primed equal-power topology crossfade lands on the settled new shape");
+
+        Settings shelf = isolated();
+        shelf.bands[0].shape = Shape::LowShelf; shelf.bands[0].gainDb = 6;
+        eq.prepare(48000); eq.setSettings(shelf, true);
+        std::vector<float> dc(4800, 0.1f), dcRight(4800, 0.1f);
+        float* dcChannels[] = {dc.data(), dcRight.data()};
+        eq.process(dcChannels, 2, 2400);
+        const auto settled = dc[2399];
+        shelf.bypass = true;
+        eq.setSettings(shelf);
+        float* fade[] = {dc.data() + 2400, dcRight.data() + 2400};
+        eq.process(fade, 2, 2400);
+        check(std::abs(dc[2400] - settled) < 1.0e-5, "bypass fade starts on an S-curve, not a linear step");
+        near(dc[4799], 0.1, 1.0e-6, "bypass fade still lands on the dry signal");
+    }
+    {
+        auto secondHarmonicDb = [&](double drive) {
+            Settings driven = isolated();
+            driven.snap = false;
+            driven.bands[0].gainDb = 12; driven.bands[0].drive = drive;
+            Equalizer eq;
+            eq.prepare(48000); eq.setSettings(driven, true);
+            std::vector<float> left(48000), right(48000);
+            sine(left, right, 1000, 0.1f, 0);
+            float* channels[] = {left.data(), right.data()};
+            eq.process(channels, 2, 48000);
+            std::complex<double> fundamental, harmonic;
+            for (int i = 24000; i < 48000; ++i) {
+                const auto phase = 2.0 * std::numbers::pi * 1000.0 * i / 48000.0;
+                fundamental += static_cast<double>(left[static_cast<size_t>(i)]) * std::polar(1.0, -phase);
+                harmonic += static_cast<double>(left[static_cast<size_t>(i)]) * std::polar(1.0, -2.0 * phase);
+            }
+            return 20.0 * std::log10(std::abs(harmonic) / std::abs(fundamental));
+        };
+        check(secondHarmonicDb(0) < -100, "undriven band adds no harmonics");
+        const auto driven = secondHarmonicDb(1);
+        check(driven > -50, "driven band adds asymmetric second harmonic");
+        check(driven < -10, "driven band saturation stays musical");
+    }
+    {
+        auto hot = [&](float amplitude, double outputDb) {
+            Settings loud = isolated();
+            loud.bands[0].enabled = false;
+            loud.outputDb = outputDb;
+            Equalizer eq;
+            eq.prepare(48000); eq.setSettings(loud, true);
+            std::vector<float> left(96000), right(96000);
+            sine(left, right, 7350, amplitude, 0);
+            float* channels[] = {left.data(), right.data()};
+            eq.process(channels, 2, 96000);
+            return left;
+        };
+        const auto clipped = hot(0.9f, 12);
+        double peak = 0, total = 0, musical = 0;
+        for (size_t i = 48000; i < 96000; ++i) {
+            peak = std::max(peak, std::abs(static_cast<double>(clipped[i])));
+            total += static_cast<double>(clipped[i]) * clipped[i];
+        }
+        for (int harmonic = 0; harmonic <= 3; ++harmonic) {
+            std::complex<double> bin;
+            for (int i = 48000; i < 96000; ++i)
+                bin += static_cast<double>(clipped[static_cast<size_t>(i)]) * std::polar(1.0, -2.0 * std::numbers::pi * 7350.0 * harmonic * i / 48000.0);
+            musical += std::norm(bin) / 48000.0 * (harmonic == 0 || harmonic == 3 ? 1.0 : 2.0);
+        }
+        check(peak <= 1.4, "output ceiling holds at the soft-saturation limit");
+        check(10.0 * std::log10((total - musical) / total) < -16, "antialiased output saturation keeps folded harmonics down");
+        const auto quiet = hot(0.1f, 0);
+        std::vector<float> reference(96000), unused(96000);
+        sine(reference, unused, 7350, 0.1f, 0);
+        double quietError = 0;
+        for (size_t i = 0; i < 96000; ++i) quietError = std::max(quietError, std::abs(static_cast<double>(quiet[i]) - reference[i]));
+        check(quietError < 1.0e-7, "soft saturation is transparent at normal levels");
     }
     std::cout << "PASS: " << checks << " checks\n";
 }

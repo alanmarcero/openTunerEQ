@@ -6,16 +6,24 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     faceplate = juce::ImageCache::getFromMemory(BinaryData::analogcyberfaceplate_png, BinaryData::analogcyberfaceplate_pngSize);
     tuningFork = juce::Drawable::createFromImageData(BinaryData::tuningfork_svg, BinaryData::tuningfork_svgSize);
     addAndMakeVisible(content);
-    for (auto* button : {&snap, &flats, &bypass, &autoGain, &soloSelected}) { button->setClickingTogglesState(true); content.addAndMakeVisible(button); }
+    for (auto* button : {&snap, &flats, &bypass, &autoGain, &soloSelected, &phaseComp}) { button->setClickingTogglesState(true); content.addAndMakeVisible(button); }
     snap.setComponentID("snap"); flats.setComponentID("flats"); bypass.setComponentID("bypass");
     autoGain.setComponentID("autoGain"); soloSelected.setComponentID("soloSelected");
     snap.setTooltip("Snap every band to the nearest chromatic note of the A4 reference, including host automation");
     flats.setTooltip("Display flats instead of sharps; pitch is unchanged");
     bypass.setTooltip("Bypass the whole EQ, including output gain");
     bypass.setColour(juce::TextButton::buttonOnColourId, ui::copper);
-    autoGain.setTooltip("Automatically compensate output level for active bell and shelf boosts/cuts");
+    autoGain.setTooltip("Match the output's K-weighted loudness to the input so EQ moves are heard at equal level");
     soloSelected.setTooltip("Audition the currently selected EQ band in isolation");
     soloSelected.setColour(juce::TextButton::buttonOnColourId, ui::copper);
+    phaseComp.setComponentID("phaseComp");
+    phaseComp.setTooltip("Give the untouched channel of a Left, Right, Mid or Side cut the cut's passband phase");
+    qMode.setComponentID("qMode"); qMode.addItemList(params::qModes, 1);
+    qMode.setTooltip("Bell width law. Symmetric matches boost and cut widths, Constant keeps Q fixed, Proportional narrows as gain grows.");
+    dynThreshold.setComponentID("dynThreshold");
+    dynThreshold.setSliderStyle(juce::Slider::LinearHorizontal); dynThreshold.setTextBoxStyle(juce::Slider::TextBoxRight, false, 62, 24);
+    dynThreshold.setTextValueSuffix(" dB"); dynThreshold.setDoubleClickReturnValue(true, -24);
+    dynThreshold.setTooltip("Level at which dynamic bands start to act");
     scale.setComponentID("scale");
     scale.setSliderStyle(juce::Slider::LinearHorizontal); scale.setTextBoxStyle(juce::Slider::TextBoxRight, false, 52, 24);
     scale.setTextValueSuffix("%"); scale.setDoubleClickReturnValue(true, 100); scale.setTooltip("Global EQ gain scale (0% flat to 200% exaggerated)");
@@ -26,12 +34,15 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     bypassAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "bypass", bypass);
     autoGainAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "autoGain", autoGain);
     soloSelectedAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "soloSelected", soloSelected);
+    phaseCompAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "phaseComp", phaseComp);
+    qModeAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, "qMode", qMode);
+    dynThresholdAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "dynThreshold", dynThreshold);
     scaleAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "scale", scale);
     outputAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "output", output);
     reference.setSliderStyle(juce::Slider::LinearHorizontal); reference.setTextBoxStyle(juce::Slider::TextBoxRight, false, 66, 22);
     reference.setTextValueSuffix(" Hz"); reference.setTooltip("Tuning reference: the frequency of A4. Notes, snapping and cents follow it.");
     referenceAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "a4", reference);
-    for (juce::Component* c : std::initializer_list<juce::Component*>{&graph, &piano, &suite, &scale, &output, &reference, &selectedLabel, &rangeLabel, &octaveDown, &octaveUp}) content.addAndMakeVisible(c);
+    for (juce::Component* c : std::initializer_list<juce::Component*>{&graph, &piano, &suite, &qMode, &dynThreshold, &scale, &output, &reference, &selectedLabel, &rangeLabel, &octaveDown, &octaveUp}) content.addAndMakeVisible(c);
     selectedLabel.setFont(ui::font(16, true)); selectedLabel.setColour(juce::Label::textColourId, ui::ink);
     rangeLabel.setFont(ui::font(12)); rangeLabel.setColour(juce::Label::textColourId, ui::muted);
     for (int i = 0; i < 5; ++i) {
@@ -78,7 +89,9 @@ void TunerEditor::resized() {
     scale.setBounds(778, 18, 116, 36);
     output.setBounds(944, 18, 122, 36);
     bypass.setBounds(1072, 16, 68, 40);
-    suite.setBounds(24, 70, 1112, 40);
+    suite.setBounds(24, 70, 700, 40);
+    phaseComp.setBounds(732, 70, 100, 40); qMode.setBounds(840, 70, 140, 40);
+    dynThreshold.setBounds(1020, 72, 116, 36);
     graph.setBounds(24, 118, 1112, 228);
     for (int i = 0; i < 5; ++i) panels[static_cast<size_t>(i)]->setBounds(24 + i * 224, 354, 216, 400);
     selectedLabel.setBounds(25, 764, 205, 22); rangeLabel.setBounds(25, 786, 205, 18);
@@ -114,6 +127,7 @@ void TunerEditor::paint(juce::Graphics& g) {
     ui::text(g, "VICANEK MATCHED ANALOG FILTER ENGINE", {86, 36, 250, 16}, 11, ui::copper);
     ui::text(g, "Scale", {742, 22, 36, 24}, 11, ui::muted);
     ui::text(g, "Out", {900, 22, 42, 24}, 11, ui::muted, juce::Justification::centredRight);
+    ui::text(g, "Dyn", {984, 78, 34, 24}, 11, ui::muted, juce::Justification::centredRight);
     const auto db = juce::Decibels::gainToDecibels(meter, -60.0f);
     g.setColour(ui::muted.withAlpha(0.2f)); g.fillRoundedRectangle(944, 56, 122, 5, 2.5f);
     g.setColour(db > 0 ? juce::Colour(0xffe98779) : juce::Colour(0xff48f0c8)); g.fillRoundedRectangle(944, 56, juce::jlimit(0.0f, 122.0f, (db + 60) / 60 * 122), 5, 2.5f);

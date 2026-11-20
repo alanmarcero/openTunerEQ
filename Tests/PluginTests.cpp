@@ -151,7 +151,8 @@ int main(int argc, char** argv) {
     for (int i = legacy.getNumChildren(); --i >= 0;) {
         const auto id = legacy.getChild(i).getProperty("id").toString();
         if (id == "analyzerEnabled" || id == "analyzerStyle" || id == "analyzerSource" || id == "analyzerFreeze" || id == "analyzerRelease" || id == "analyzerTilt"
-            || id == "scale" || id == "autoGain" || id == "soloSelected") legacy.removeChild(i, nullptr);
+            || id == "scale" || id == "autoGain" || id == "soloSelected" || id == "phaseComp" || id == "qMode" || id == "dynThreshold"
+            || id.endsWith(".dyn") || id.endsWith(".drive")) legacy.removeChild(i, nullptr);
     }
     juce::MemoryBlock legacyState;
     juce::AudioProcessor::copyXmlToBinary(*legacy.createXml(), legacyState);
@@ -165,6 +166,11 @@ int main(int argc, char** argv) {
     require(analyzerRestored.state.getRawParameterValue("scale")->load() == 100.0f, "old sessions default EQ scale to 100%");
     require(analyzerRestored.state.getRawParameterValue("autoGain")->load() == 0.0f, "old sessions default autoGain off");
     require(analyzerRestored.state.getRawParameterValue("soloSelected")->load() == 0.0f, "old sessions default soloSelected off");
+    require(analyzerRestored.state.getRawParameterValue("phaseComp")->load() == 0.0f, "old sessions leave phase alignment off");
+    require(analyzerRestored.state.getRawParameterValue("qMode")->load() == 0.0f, "old sessions use the symmetric bell Q law");
+    require(std::abs(analyzerRestored.state.getRawParameterValue("dynThreshold")->load() + 24.0f) < 0.01f, "old sessions use the default dynamic threshold");
+    require(std::abs(analyzerRestored.state.getRawParameterValue(params::bandId(0, "dyn"))->load()) < 0.01f
+            && analyzerRestored.state.getRawParameterValue(params::bandId(0, "drive"))->load() == 0.0f, "old sessions keep bands static and clean");
     processor.setParameter("analyzerFreeze", 0);
     processor.setParameter("analyzerEnabled", 1);
     processor.setParameter("analyzerSource", 0);
@@ -200,7 +206,7 @@ int main(int argc, char** argv) {
     processor.setParameter("band0.freq", 20.601722f);
     processor.setParameter("band0.gain", 24);
     processor.setParameter("band0.q", 18);
-    require(processor.getTailLengthSeconds() > 10, "host tail accommodates low-note high-Q ringing");
+    require(processor.getTailLengthSeconds() > 2, "host tail accommodates low-note high-Q ringing");
     processor.setParameter("band0.freq", 445);
     processor.setParameter("band0.gain", 12);
     processor.setParameter("band0.q", 2);

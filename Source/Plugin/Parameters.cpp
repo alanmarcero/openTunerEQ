@@ -6,7 +6,7 @@ State::ParameterLayout layout() {
     State::ParameterLayout result;
     const std::array<int, 5> initialNotes {36, 48, 69, 89, 108};
     for (int i = 0; i < 5; ++i) {
-        auto id = [i](const char* key) { return juce::ParameterID(bandId(i, key), 1); };
+        auto id = [i](const char* key, int version = 1) { return juce::ParameterID(bandId(i, key), version); };
         const auto prefix = "Band " + juce::String(i + 1) + " ";
         result.add(std::make_unique<juce::AudioParameterBool>(id("enabled"), prefix + "Enabled", true));
         result.add(std::make_unique<juce::AudioParameterChoice>(id("shape"), prefix + "Shape", shapes, 0));
@@ -18,6 +18,10 @@ State::ParameterLayout layout() {
         result.add(std::make_unique<juce::AudioParameterFloat>(id("q"), prefix + "Q", qRange, 0.7071f));
         result.add(std::make_unique<juce::AudioParameterChoice>(id("slope"), prefix + "Slope", slopes, 0));
         result.add(std::make_unique<juce::AudioParameterChoice>(id("placement"), prefix + "Placement", placements, 0));
+        result.add(std::make_unique<juce::AudioParameterFloat>(id("dyn", 5), prefix + "Dynamic range", juce::NormalisableRange<float>(-24, 24, 0.1f), 0,
+                                                               juce::AudioParameterFloatAttributes().withLabel("dB")));
+        result.add(std::make_unique<juce::AudioParameterFloat>(id("drive", 5), prefix + "Drive", juce::NormalisableRange<float>(0, 100, 1), 0,
+                                                               juce::AudioParameterFloatAttributes().withLabel("%")));
     }
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("snap", 1), "Snap to notes", true));
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("flats", 1), "Flat note spelling", false));
@@ -35,6 +39,10 @@ State::ParameterLayout layout() {
     result.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("scale", 4), "EQ gain scale", juce::NormalisableRange<float>(0.0f, 200.0f, 1.0f), 100.0f, juce::AudioParameterFloatAttributes().withLabel("%")));
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("autoGain", 4), "Auto-gain compensation", false));
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("soloSelected", 4), "Solo selected band", false));
+    result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("phaseComp", 5), "Phase-align untouched channel", false));
+    result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("qMode", 5), "Bell Q law", qModes, 0));
+    result.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("dynThreshold", 5), "Dynamic threshold", juce::NormalisableRange<float>(-60, 0, 0.1f), -24,
+                                                           juce::AudioParameterFloatAttributes().withLabel("dB")));
     return result;
 }
 }

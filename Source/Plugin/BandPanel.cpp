@@ -33,9 +33,18 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     gain.setTextValueSuffix(" dB"); gain.setDoubleClickReturnValue(true, 0); gain.setComponentID(id("gain"));
     gain.setTooltip("Boost or cut for bell and shelf shapes");
     q.setDoubleClickReturnValue(true, 0.7071); q.setComponentID(id("q")); q.setTooltip("Width / resonance. Higher Q is narrower. Steep cuts use fixed Butterworth Q.");
+    for (auto* slider : {&dynamic, &drive}) {
+        slider->setSliderStyle(juce::Slider::LinearBar);
+        slider->setColour(juce::Slider::trackColourId, colour.withAlpha(0.45f));
+        slider->setDoubleClickReturnValue(true, 0);
+    }
+    dynamic.setTextValueSuffix(" dB dyn"); dynamic.setComponentID(id("dyn"));
+    dynamic.setTooltip("Dynamic range. The band adds this much gain as its note rises above the dynamic threshold. Negative tames resonances.");
+    drive.setTextValueSuffix("% drive"); drive.setComponentID(id("drive"));
+    drive.setTooltip("Analog-style saturation of this band's boost or cut");
     hz.setFont(ui::font(17, true)); hz.setColour(juce::Label::textColourId, ui::ink); hz.setJustificationType(juce::Justification::centred);
     cents.setFont(ui::font(11)); cents.setColour(juce::Label::textColourId, ui::muted); cents.setJustificationType(juce::Justification::centred);
-    for (juce::Component* c : std::initializer_list<juce::Component*>{&enabled, &placement, &note, &octave, &down, &up, &frequency, &gain, &q, &shape, &slope, &hz, &cents}) addAndMakeVisible(c);
+    for (juce::Component* c : std::initializer_list<juce::Component*>{&enabled, &placement, &note, &octave, &down, &up, &frequency, &gain, &q, &shape, &slope, &dynamic, &drive, &hz, &cents}) addAndMakeVisible(c);
     enabledAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, id("enabled"), enabled);
     shapeAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, id("shape"), shape);
     slopeAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, id("slope"), slope);
@@ -43,6 +52,8 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     frequencyAttachment = std::make_unique<params::State::SliderAttachment>(p.state, id("freq"), frequency);
     gainAttachment = std::make_unique<params::State::SliderAttachment>(p.state, id("gain"), gain);
     qAttachment = std::make_unique<params::State::SliderAttachment>(p.state, id("q"), q);
+    dynamicAttachment = std::make_unique<params::State::SliderAttachment>(p.state, id("dyn"), dynamic);
+    driveAttachment = std::make_unique<params::State::SliderAttachment>(p.state, id("drive"), drive);
     frequency.setTextValueSuffix("");
     frequency.textFromValueFunction = [this](double value) {
         return ui::frequencyText(ote::effectiveFrequency(value, processor.readSettings().snap, processor.displaySampleRate(), processor.referencePitch()));
@@ -96,6 +107,7 @@ void BandPanel::refresh() {
     const auto& b = settings.bands[static_cast<size_t>(index)];
     enabled.setButtonText(b.enabled ? "Enabled" : "Disabled");
     gain.setEnabled(ote::usesGain(b.shape)); q.setEnabled(ote::usesQ(b)); slope.setEnabled(ote::isCut(b.shape));
+    slope.setVisible(!ote::usesGain(b.shape)); dynamic.setVisible(ote::usesGain(b.shape)); drive.setVisible(ote::usesGain(b.shape));
     updating = false;
     repaint();
 }
@@ -123,4 +135,5 @@ void BandPanel::resized() {
     frequency.setBounds(14, 186, w - 28, 24);
     gain.setBounds(12, 214, (w - 28) / 2, 78); q.setBounds(w / 2 + 2, 214, (w - 28) / 2, 78);
     shape.setBounds(14, 300, w - 28, 40); slope.setBounds(14, 348, w - 28, 40);
+    dynamic.setBounds(14, 348, (w - 32) / 2, 40); drive.setBounds(w / 2 + 2, 348, (w - 32) / 2, 40);
 }
