@@ -9,4 +9,5 @@ inline const juce::StringArray shapes {"Bell", "Low shelf", "High shelf", "High 
 inline const juce::StringArray placements {"Stereo", "Left", "Right", "Mid", "Side"};
 inline const juce::StringArray slopes {"12 dB/oct / Soft", "24 dB/oct", "48 dB/oct", "96 dB/oct / Hard"};
 inline constexpr std::array<int, 4> slopeValues {12, 24, 48, 96};
+inline const juce::StringArray qModes {"Symmetric Q", "Constant Q", "Proportional Q"};
 }

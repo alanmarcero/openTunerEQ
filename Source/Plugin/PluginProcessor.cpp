@@ -20,7 +20,7 @@ TunerProcessor::TunerProcessor()
       presetStore("openTunerEQ", factoryNames()) {
     for (int i = 0; i < 5; ++i) {
         auto get = [&](const char* key) { return state.getRawParameterValue(params::bandId(i, key)); };
-        values[static_cast<size_t>(i)] = {get("enabled"), get("shape"), get("freq"), get("gain"), get("q"), get("slope"), get("placement")};
+        values[static_cast<size_t>(i)] = {get("enabled"), get("shape"), get("freq"), get("gain"), get("q"), get("slope"), get("placement"), get("dyn"), get("drive")};
     }
     snap = state.getRawParameterValue("snap"); flats = state.getRawParameterValue("flats");
     bypass = state.getRawParameterValue("bypass"); output = state.getRawParameterValue("output");
@@ -30,6 +30,9 @@ TunerProcessor::TunerProcessor()
     scale = state.getRawParameterValue("scale");
     autoGain = state.getRawParameterValue("autoGain");
     soloSelected = state.getRawParameterValue("soloSelected");
+    phaseComp = state.getRawParameterValue("phaseComp");
+    qMode = state.getRawParameterValue("qMode");
+    dynThreshold = state.getRawParameterValue("dynThreshold");
     abCompare.prime();
 }
 void TunerProcessor::prepareToPlay(double rate, int) {
@@ -50,6 +53,9 @@ ote::Settings TunerProcessor::readSettings() const noexcept {
     result.a4 = safe(reference, static_cast<float>(ote::standardPitch));
     result.scale = safe(scale, 100.0f) * 0.01;
     result.autoGain = autoGain->load() > 0.5f;
+    result.phaseCompensation = phaseComp->load() > 0.5f;
+    result.dynamicThresholdDb = safe(dynThreshold, -24);
+    const auto bellLaw = static_cast<ote::QMode>(juce::jlimit(0, 2, static_cast<int>(std::lround(safe(qMode, 0)))));
     result.soloBand = soloSelected->load() > 0.5f ? juce::jlimit(0, 4, activeSelectedBand.load()) : -1;
     for (size_t i = 0; i < values.size(); ++i) {
         const auto& v = values[i]; auto& b = result.bands[i];
@@ -58,6 +64,9 @@ ote::Settings TunerProcessor::readSettings() const noexcept {
         b.frequency = safe(v.freq, 440); b.gainDb = safe(v.gain, 0) * result.scale; b.q = safe(v.q, 0.7071f);
         b.slope = params::slopeValues[static_cast<size_t>(juce::jlimit(0, 3, static_cast<int>(safe(v.slope, 0))))];
         b.placement = static_cast<ote::Placement>(juce::jlimit(0, 4, static_cast<int>(std::lround(safe(v.placement, 0)))));
+        b.qMode = bellLaw;
+        b.dynamicDb = safe(v.dyn, 0) * result.scale;
+        b.drive = juce::jlimit(0.0, 1.0, safe(v.drive, 0) * 0.01);
     }
     return result;
 }
@@ -87,7 +96,8 @@ void TunerProcessor::injectDefaults(juce::ValueTree& tree) const {
     const std::pair<const char*, float> defaults[] {
         {"analyzerEnabled", 1.0f}, {"analyzerStyle", 0.0f}, {"analyzerSource", 0.0f},
         {"analyzerFreeze", 0.0f}, {"analyzerRelease", 1.0f}, {"analyzerTilt", 2.0f},
-        {"scale", 100.0f}, {"autoGain", 0.0f}, {"soloSelected", 0.0f}
+        {"scale", 100.0f}, {"autoGain", 0.0f}, {"soloSelected", 0.0f},
+        {"phaseComp", 0.0f}, {"qMode", 0.0f}, {"dynThreshold", -24.0f}
     };
     auto add = [&](const juce::String& id, float value) {
         if (tree.getChildWithProperty("id", id).isValid()) return;
@@ -97,7 +107,8 @@ void TunerProcessor::injectDefaults(juce::ValueTree& tree) const {
         tree.appendChild(child, nullptr);
     };
     for (const auto& [id, value] : defaults) add(id, value);
-    for (int i = 0; i < 5; ++i) add(params::bandId(i, "placement"), 0.0f);
+    for (int i = 0; i < 5; ++i)
+        for (const char* key : {"placement", "dyn", "drive"}) add(params::bandId(i, key), 0.0f);
 }
 void TunerProcessor::writeParameters(juce::MemoryBlock& dest) {
     dest.reset();
@@ -159,8 +170,8 @@ void TunerProcessor::applyFactory(int index) {
         if (auto* parameter = state.getParameter(id)) parameter->setValueNotifyingHost(parameter->getDefaultValue());
     };
     for (int i = 0; i < 5; ++i)
-        for (const char* key : {"enabled", "shape", "freq", "gain", "q", "slope", "placement"}) reset(params::bandId(i, key));
-    for (const char* id : {"output", "bypass", "snap", "scale", "autoGain", "soloSelected"}) reset(id);
+        for (const char* key : {"enabled", "shape", "freq", "gain", "q", "slope", "placement", "dyn", "drive"}) reset(params::bandId(i, key));
+    for (const char* id : {"output", "bypass", "snap", "scale", "autoGain", "soloSelected", "phaseComp", "qMode", "dynThreshold"}) reset(id);
     for (const auto& [id, value] : presets[static_cast<size_t>(index)].values) assignParameter(id, value);
     program = index;
     presetName = presets[static_cast<size_t>(index)].name;
