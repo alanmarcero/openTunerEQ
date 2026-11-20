@@ -30,7 +30,7 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
         slider->setRotaryParameters(juce::MathConstants<float>::pi * 1.2f, juce::MathConstants<float>::pi * 2.8f, true);
     }
     frequency.setColour(juce::Slider::rotarySliderFillColourId, colour);
-    gain.setTextValueSuffix(" dB"); gain.setDoubleClickReturnValue(true, 0); gain.setComponentID(id("gain"));
+    gain.setDoubleClickReturnValue(true, 0); gain.setComponentID(id("gain"));
     gain.setTooltip("Boost or cut for bell and shelf shapes");
     q.setDoubleClickReturnValue(true, 0.7071); q.setComponentID(id("q")); q.setTooltip("Width / resonance. Higher Q is narrower. Steep cuts use fixed Butterworth Q.");
     for (auto* slider : {&dynamic, &drive}) {
@@ -38,9 +38,9 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
         slider->setColour(juce::Slider::trackColourId, colour.withAlpha(0.45f));
         slider->setDoubleClickReturnValue(true, 0);
     }
-    dynamic.setTextValueSuffix(" dB dyn"); dynamic.setComponentID(id("dyn"));
+    dynamic.setTextValueSuffix(" dyn"); dynamic.setComponentID(id("dyn"));
     dynamic.setTooltip("Dynamic range. The band adds this much gain as its note rises above the dynamic threshold. Negative tames resonances.");
-    drive.setTextValueSuffix("% drive"); drive.setComponentID(id("drive"));
+    drive.setTextValueSuffix(" drive"); drive.setComponentID(id("drive"));
     drive.setTooltip("Analog-style saturation of this band's boost or cut");
     hz.setFont(ui::font(17, true)); hz.setColour(juce::Label::textColourId, ui::ink); hz.setJustificationType(juce::Justification::centred);
     cents.setFont(ui::font(11)); cents.setColour(juce::Label::textColourId, ui::muted); cents.setJustificationType(juce::Justification::centred);
@@ -56,7 +56,7 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     driveAttachment = std::make_unique<params::State::SliderAttachment>(p.state, id("drive"), drive);
     frequency.setTextValueSuffix("");
     frequency.textFromValueFunction = [this](double value) {
-        return ui::frequencyText(ote::effectiveFrequency(value, processor.readSettings().snap, processor.displaySampleRate(), processor.referencePitch()));
+        return params::frequencyText(ote::effectiveFrequency(value, processor.readSettings().snap, processor.displaySampleRate(), processor.referencePitch()));
     };
     note.onChange = [this] { if (!updating) chooseNote((octave.getSelectedId()) * 12 + note.getSelectedId() - 1); };
     octave.onChange = note.onChange;
@@ -99,7 +99,7 @@ void BandPanel::refresh() {
     }
     down.setEnabled(ote::noteFrequency(midi - 1, processor.referencePitch()) >= 20);
     up.setEnabled(ote::noteFrequency(midi + 1, processor.referencePitch()) <= max);
-    hz.setText(ui::frequencyText(frequencyValue), juce::dontSendNotification);
+    hz.setText(params::frequencyText(frequencyValue), juce::dontSendNotification);
     if (!frequency.isMouseButtonDown()) frequency.updateText();
     const auto settings = processor.readSettings();
     const auto centsValue = ote::centsFromNote(frequencyValue, midi, processor.referencePitch());

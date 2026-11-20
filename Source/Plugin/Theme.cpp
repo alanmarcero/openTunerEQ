@@ -4,7 +4,6 @@ juce::Font font(float size, bool bold) { return juce::Font(juce::FontOptions(siz
 void text(juce::Graphics& g, const juce::String& value, juce::Rectangle<float> bounds, float size, juce::Colour colour, juce::Justification alignment, bool bold) {
     g.setColour(colour); g.setFont(font(size, bold)); g.drawText(value, bounds, alignment, false);
 }
-juce::String frequencyText(double hz) { return juce::String(hz, hz < 1000 ? 2 : 1) + " Hz"; }
 Theme::Theme() {
     setColour(juce::Slider::textBoxTextColourId, ink);
     setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);

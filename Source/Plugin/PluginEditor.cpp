@@ -22,13 +22,13 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     qMode.setTooltip("Bell width law. Symmetric matches boost and cut widths, Constant keeps Q fixed, Proportional narrows as gain grows.");
     dynThreshold.setComponentID("dynThreshold");
     dynThreshold.setSliderStyle(juce::Slider::LinearHorizontal); dynThreshold.setTextBoxStyle(juce::Slider::TextBoxRight, false, 62, 24);
-    dynThreshold.setTextValueSuffix(" dB"); dynThreshold.setDoubleClickReturnValue(true, -24);
+    dynThreshold.setDoubleClickReturnValue(true, -24);
     dynThreshold.setTooltip("Level at which dynamic bands start to act");
     scale.setComponentID("scale");
     scale.setSliderStyle(juce::Slider::LinearHorizontal); scale.setTextBoxStyle(juce::Slider::TextBoxRight, false, 52, 24);
-    scale.setTextValueSuffix("%"); scale.setDoubleClickReturnValue(true, 100); scale.setTooltip("Global EQ gain scale (0% flat to 200% exaggerated)");
+    scale.setDoubleClickReturnValue(true, 100); scale.setTooltip("Global EQ gain scale (0% flat to 200% exaggerated)");
     output.setSliderStyle(juce::Slider::LinearHorizontal); output.setTextBoxStyle(juce::Slider::TextBoxRight, false, 62, 24);
-    output.setTextValueSuffix(" dB"); output.setDoubleClickReturnValue(true, 0); output.setTooltip("Output trim");
+    output.setDoubleClickReturnValue(true, 0); output.setTooltip("Output trim");
     snapAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "snap", snap);
     flatsAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "flats", flats);
     bypassAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "bypass", bypass);
@@ -40,7 +40,7 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     scaleAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "scale", scale);
     outputAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "output", output);
     reference.setSliderStyle(juce::Slider::LinearHorizontal); reference.setTextBoxStyle(juce::Slider::TextBoxRight, false, 66, 22);
-    reference.setTextValueSuffix(" Hz"); reference.setTooltip("Tuning reference: the frequency of A4. Notes, snapping and cents follow it.");
+    reference.setTooltip("Tuning reference: the frequency of A4. Notes, snapping and cents follow it.");
     referenceAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "a4", reference);
     for (juce::Component* c : std::initializer_list<juce::Component*>{&graph, &piano, &suite, &qMode, &dynThreshold, &scale, &output, &reference, &selectedLabel, &rangeLabel, &octaveDown, &octaveUp}) content.addAndMakeVisible(c);
     selectedLabel.setFont(ui::font(16, true)); selectedLabel.setColour(juce::Label::textColourId, ui::ink);
@@ -76,7 +76,7 @@ void TunerEditor::timerCallback() {
     const auto hz = processor.bandFrequency(selected); const auto midi = ote::nearestNote(hz, processor.referencePitch());
     selectedLabel.setText("Band " + juce::String(selected + 1) + "  /  " + juce::String(ote::noteName(midi, processor.usesFlats())), juce::dontSendNotification);
     selectedLabel.setColour(juce::Label::textColourId, ui::bandColours[static_cast<size_t>(selected)]);
-    rangeLabel.setText(ui::frequencyText(hz), juce::dontSendNotification);
+    rangeLabel.setText(params::frequencyText(hz), juce::dontSendNotification);
     octaveDown.setEnabled(ote::noteFrequency(midi - 12, processor.referencePitch()) >= 20);
     octaveUp.setEnabled(ote::noteFrequency(midi + 12, processor.referencePitch()) <= std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49));
     meter = std::max(processor.peak.load(), meter * 0.88f);

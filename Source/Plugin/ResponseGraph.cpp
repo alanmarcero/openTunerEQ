@@ -96,7 +96,7 @@ void ResponseGraph::paint(juce::Graphics& g) {
     juce::String caption = analyzerOn ? (style == 2 ? "Audio history (tilted): newest at top / White: EQ response" : "Cyan: tilted audio spectrum / White: EQ response") : "Drag a band / Scroll for Q / Double-click to bypass";
     if (hoverX >= 0) {
         const auto hz = frequencyAt(hoverX);
-        caption = juce::String(hz, 1) + " Hz / " + ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats());
+        caption = params::frequencyText(hz) + " / " + ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats());
         if (analyzerOn) caption += " / " + juce::String(analyzer.levelAt(hz, tiltDbPerOctave), 1) + (afterEQ ? " dB tilted after EQ" : " dB tilted before EQ");
         caption += " / Alt-click to tune";
     }
@@ -174,7 +174,7 @@ void ResponseGraph::paint(juce::Graphics& g) {
             g.fillEllipse(pt.x - 16, pt.y - 16, 32, 32);
             const auto hz = processor.bandFrequency(i);
             const auto place = settings.bands[static_cast<size_t>(i)].placement;
-            auto caption = juce::String(ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats())) + "  " + juce::String(hz, 1) + " Hz";
+            auto caption = juce::String(ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats())) + "  " + params::frequencyText(hz);
             if (place != ote::Placement::Stereo) caption += "  " + params::placements[static_cast<int>(place)];
             auto label = juce::Rectangle<float>(place == ote::Placement::Stereo ? 132.0f : 188.0f, 21.0f).withCentre({juce::jlimit(p.getX() + 96, p.getRight() - 96, pt.x), std::max(p.getY() + 10, pt.y - 27)});
             g.setColour(ui::background); g.fillRoundedRectangle(label, 4);

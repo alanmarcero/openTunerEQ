@@ -53,6 +53,27 @@ void checkAnalyzerSources() {
         require(std::abs(measure(true, true) - before) < 0.2, "after-EQ spectrum follows host bypass");
     }
 }
+void checkParameterText() {
+    TunerProcessor processor;
+    for (const auto* parameter : processor.getParameters()) {
+        if (dynamic_cast<const juce::AudioParameterFloat*>(parameter) == nullptr) continue;
+        for (float value : {0.0f, 0.13f, 0.5f, 0.77f, 1.0f}) {
+            const auto shown = parameter->getText(value, 0);
+            if (parameter->getText(parameter->getValueForText(shown), 0) != shown) std::cerr << parameter->getName(64) << " shows " << shown << '\n';
+            require(parameter->getText(parameter->getValueForText(shown), 0) == shown, "typing a displayed value gives the same value");
+        }
+    }
+    auto shown = [&](const char* id, float value) { const auto* p = processor.state.getParameter(id); return p->getText(p->convertTo0to1(value), 0); };
+    auto typed = [&](const char* id, const char* text) { const auto* p = processor.state.getParameter(id); return p->convertFrom0to1(p->getValueForText(text)); };
+    require(shown("band0.gain", 3) == "+3.0 dB" && shown("band0.gain", -0.04f) == "0.0 dB" && shown("output", -6) == "-6.0 dB",
+            "gain shows one decimal, a plus on boosts and no negative zero");
+    require(shown("band0.freq", 850) == "850 Hz" && shown("band0.freq", 6800) == "6.80 kHz" && shown("band0.freq", 16744) == "16.7 kHz",
+            "frequency shows Hz below 1 kHz and kHz above");
+    require(std::abs(typed("band0.freq", "6.8k") - 6800) < 1 && std::abs(typed("band0.freq", "6.8 kHz") - 6800) < 1
+            && std::abs(typed("band0.freq", "850 Hz") - 850) < 0.01f, "frequency accepts Hz, k and kHz");
+    require(typed("band0.drive", "50") == 50 && typed("band0.drive", "50%") == 50 && shown("scale", 55) == "55%", "percent controls accept 50 and 50%");
+    require(std::abs(typed("band0.gain", "+3.0 dB") - 3) < 0.01f && std::abs(typed("a4", "442.5 Hz") - 442.5f) < 0.01f, "dB and Hz suffixes are accepted");
+}
 void checkButtonLayout(const juce::Component& parent, int minimum) {
     for (int i = 0; i < parent.getNumChildComponents(); ++i) {
         const auto* child = parent.getChildComponent(i);
@@ -194,6 +215,7 @@ int main(int argc, char** argv) {
         }
     }
     checkAnalyzerSources();
+    checkParameterText();
     processor.prepareToPlay(48000, 512);
     processor.setParameter("band0.freq", 445);
     auto settings = processor.readSettings();
@@ -292,7 +314,7 @@ int main(int argc, char** argv) {
     require(ote::nearestNote(processor.bandFrequency(0), processor.referencePitch()) % 12 == 0, "direct C selection changes frequency");
     processor.setParameter("snap", 1);
     processor.setParameter("band0.freq", 445);
-    require(freq->getTextFromValue(445) == "440.00 Hz", "frequency text uses snapped value and one unit");
+    require(freq->getTextFromValue(445) == "440 Hz", "frequency text uses snapped value and one unit");
     auto findType = [&](auto&& self, juce::Component& root, bool wantPiano) -> juce::Component* {
         if (wantPiano ? dynamic_cast<PianoStrip*>(&root) != nullptr : dynamic_cast<ResponseGraph*>(&root) != nullptr) return &root;
         for (auto* child : root.getChildren()) if (auto* match = self(self, *child, wantPiano)) return match;
