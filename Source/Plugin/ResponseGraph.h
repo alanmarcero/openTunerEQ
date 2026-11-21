@@ -1,7 +1,7 @@
 #pragma once
 #include "PluginProcessor.h"
 #include "Theme.h"
-class ResponseGraph final : public juce::Component, private juce::Timer {
+class ResponseGraph final : public juce::Component {
 public:
     explicit ResponseGraph(TunerProcessor&);
     ~ResponseGraph() override;
@@ -40,7 +40,7 @@ private:
     int style = 0;
     float tiltDbPerOctave = 4.5f;
     float hoverX = -1;
-    int selected = 0, dragging = -1, wheelBand = -1;
+    int selected = 0, dragging = -1;
     bool gainGesture = false;
     juce::Point<float> lastDrag;
     float dragX = 0;
@@ -51,8 +51,6 @@ private:
     juce::Point<float> pointFor(int band) const;
     int nodeAt(juce::Point<float>) const;
     void endGesture();
-    void endWheel();
-    void timerCallback() override;
     void paintSpectrum(juce::Graphics&);
     double frequencyAt(float x) const;
 };

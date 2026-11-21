@@ -10,13 +10,12 @@ public:
     void toggle();
     void copyAtoB();
     void copyBtoA();
-    bool isB() const noexcept { return active == 1; }
+    bool isB() const noexcept;
     void writeXml(juce::XmlElement&) const;
     bool readXml(const juce::XmlElement&);
 private:
     ParameterUndo& history;
     juce::MemoryBlock slots[2];
-    int active = 0;
     void copyBetween(int from, int to);
 };
 }

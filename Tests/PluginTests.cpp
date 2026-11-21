@@ -590,7 +590,6 @@ int main(int argc, char** argv) {
         nodes->mouseWheelMove(mouseAt(*nodes, {nodeX(dragged.bandFrequency(3)), nodeY(0)}), tick);
         nodes->mouseWheelMove(mouseAt(*nodes, {nodeX(dragged.bandFrequency(3)), nodeY(0)}), tick);
         nodes->mouseWheelMove(mouseAt(*nodes, {nodeX(1000), nodeY(-20)}), tick);
-        nodes->mouseExit(mouseAt(*nodes, {0, 0}));
         require(q(3) > 0.9f && std::abs(q(0) - 0.71f) < 0.01f, "the wheel changes the Q of the band under the cursor only");
         dragged.history().undo();
         require(std::abs(q(3) - 0.71f) < 0.01f, "one scroll is one undo step");

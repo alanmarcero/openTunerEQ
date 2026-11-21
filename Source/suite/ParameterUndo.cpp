@@ -33,8 +33,12 @@ ParameterUndo::ParameterUndo(juce::AudioProcessor& p, Export exporter, Import im
 ParameterUndo::~ParameterUndo() {
     for (auto* parameter : processor.getParameters()) parameter->removeListener(this);
 }
-void ParameterUndo::undo() { if (manager().canUndo()) manager().undo(); }
-void ParameterUndo::redo() { if (manager().canRedo()) manager().redo(); }
+void ParameterUndo::undo() { lastEdited = nullptr; if (manager().canUndo()) manager().undo(); }
+void ParameterUndo::redo() { lastEdited = nullptr; if (manager().canRedo()) manager().redo(); }
+void ParameterUndo::reset(int activeSlot) {
+    for (auto& history : managers) history.clearUndoHistory();
+    selectSlot(activeSlot);
+}
 juce::MemoryBlock ParameterUndo::capture() const {
     juce::MemoryBlock block;
     exportState(block);
@@ -45,6 +49,7 @@ void ParameterUndo::restore(const juce::MemoryBlock& block) {
     importState(block);
 }
 void ParameterUndo::applyChange(const juce::String& name, std::function<void()> change) {
+    lastEdited = nullptr;
     const auto before = capture();
     {
         juce::ScopedValueSetter<int> guard(suppress, suppress + 1);
@@ -63,7 +68,9 @@ void ParameterUndo::parameterGestureChanged(int index, bool starting) {
     if (!juce::isPositiveAndBelow(index, parameters.size())) return;
     auto* parameter = parameters[index];
     if (starting) {
-        if (openGestures == 0) manager().beginNewTransaction("Edit");
+        // A gesture on the last edited parameter within 400 ms joins that step, so one scroll is one undo step.
+        const auto joins = parameter == lastEdited && juce::Time::getMillisecondCounterHiRes() - lastEditEnd < 400.0;
+        if (openGestures == 0 && !joins) manager().beginNewTransaction("Edit");
         ++openGestures;
         for (const auto& entry : gestureStart) if (entry.first == parameter) return;
         gestureStart.emplace_back(parameter, parameter->getValue());
@@ -79,6 +86,7 @@ void ParameterUndo::parameterGestureChanged(int index, bool starting) {
     gestureStart.clear();
     if (changes.empty()) return;
     manager().perform(new GroupAction(*this, std::move(changes)));
+    lastEdited = parameter; lastEditEnd = juce::Time::getMillisecondCounterHiRes();
     if (onEdit) onEdit();
 }
 }

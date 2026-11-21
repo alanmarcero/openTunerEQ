@@ -32,7 +32,7 @@ ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spect
     tiltAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, "analyzerTilt", analyzerTilt);
     refresh(); animate();
 }
-ResponseGraph::~ResponseGraph() { processor.spectrum.setActive(false); endGesture(); endWheel(); }
+ResponseGraph::~ResponseGraph() { processor.spectrum.setActive(false); endGesture(); }
 void ResponseGraph::resized() {
     curveRate = 0;
     auto row = getLocalBounds().removeFromTop(40).withTrimmedRight(8);
@@ -268,7 +268,7 @@ void ResponseGraph::paintSpectrum(juce::Graphics& g) {
     }
 }
 void ResponseGraph::mouseMove(const juce::MouseEvent& e) { hoverX = plot().contains(e.position) ? e.position.x : -1; repaint(); }
-void ResponseGraph::mouseExit(const juce::MouseEvent&) { endWheel(); hoverX = -1; repaint(); }
+void ResponseGraph::mouseExit(const juce::MouseEvent&) { hoverX = -1; repaint(); }
 int ResponseGraph::nodeAt(juce::Point<float> position) const {
     int nearest = -1;
     float distance = 28;
@@ -280,7 +280,7 @@ int ResponseGraph::nodeAt(juce::Point<float> position) const {
     return nearest;
 }
 void ResponseGraph::mouseDown(const juce::MouseEvent& e) {
-    endGesture(); endWheel();
+    endGesture();
     if (e.mods.isAltDown() && plot().contains(e.position)) {
         const auto hz = ote::effectiveFrequency(frequencyAt(e.position.x), processor.readSettings().snap, processor.displaySampleRate(), processor.referencePitch());
         processor.setParameter(params::bandId(selected, "freq"), static_cast<float>(hz));
@@ -328,24 +328,9 @@ void ResponseGraph::mouseDoubleClick(const juce::MouseEvent& e) {
 void ResponseGraph::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) {
     const auto band = nodeAt(e.position);
     if (band < 0 || !ote::usesQ(processor.readSettings().bands[static_cast<size_t>(band)])) { juce::Component::mouseWheelMove(e, wheel); return; }
-    auto* q = processor.state.getParameter(params::bandId(band, "q"));
-    if (band != wheelBand) {
-        endWheel();
-        wheelBand = band; selected = band;
-        if (onSelect) onSelect(band);
-        q->beginChangeGesture();
-    }
+    if (band != selected) { selected = band; if (onSelect) onSelect(band); }
     const auto current = processor.readSettings().bands[static_cast<size_t>(band)].q;
-    q->setValueNotifyingHost(q->convertTo0to1(static_cast<float>(std::clamp(current * std::exp(wheel.deltaY * 2), 0.1, 18.0))));
-    // A 400 ms pause ends the gesture, so one scroll is one undo step.
-    startTimer(400);
-}
-void ResponseGraph::timerCallback() { endWheel(); }
-void ResponseGraph::endWheel() {
-    stopTimer();
-    if (wheelBand < 0) return;
-    processor.state.getParameter(params::bandId(wheelBand, "q"))->endChangeGesture();
-    wheelBand = -1;
+    processor.setParameter(params::bandId(band, "q"), static_cast<float>(std::clamp(current * std::exp(wheel.deltaY * 2), 0.1, 18.0)));
 }
 namespace {
 bool blackKey(int midi) { const auto p = midi % 12; return p == 1 || p == 3 || p == 6 || p == 8 || p == 10; }
