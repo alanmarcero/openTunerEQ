@@ -422,6 +422,42 @@ int main(int argc, char** argv) {
     require(listener.ends == 1, "closing editor ends active host gesture");
     frequencyParameter->removeListener(&listener);
     {
+        TunerProcessor dragged;
+        dragged.setParameter("band0.gain", 6);
+        std::unique_ptr<juce::AudioProcessorEditor> view(dragged.createEditor());
+        auto* nodes = dynamic_cast<ResponseGraph*>(findType(findType, *view, false));
+        const auto plotHeight = nodes->getHeight() - 76.0f;
+        auto nodeX = [&](double hz) { return 48.0f + static_cast<float>(std::log(hz / 20) / std::log(1000.0)) * (nodes->getWidth() - 96); };
+        auto nodeY = [&](double db) { return 44.0f + plotHeight / 2 - static_cast<float>(db) / 48 * plotHeight; };
+        auto gain = [&] { return dragged.state.getRawParameterValue("band0.gain")->load(); };
+        const juce::Point<float> offCentre {nodeX(dragged.bandFrequency(0)), nodeY(6) + 10};
+        nodes->mouseDown(mouseAt(*nodes, offCentre));
+        nodes->mouseDrag(mouseAt(*nodes, offCentre));
+        nodes->mouseUp(mouseAt(*nodes, offCentre));
+        require(std::abs(gain() - 6) < 0.05f, "an off-centre grab does not jump the node");
+        dragged.setParameter("scale", 50);
+        const juce::Point<float> scaled {nodeX(dragged.bandFrequency(0)), nodeY(3)};
+        nodes->mouseDown(mouseAt(*nodes, scaled));
+        nodes->mouseDrag(mouseAt(*nodes, scaled.translated(0, -plotHeight / 16)));
+        nodes->mouseUp(mouseAt(*nodes, scaled));
+        require(std::abs(gain() - 12) < 0.05f, "a 3 dB drag at 50% Scale adds 6 dB to the parameter");
+        dragged.setParameter("scale", 100);
+        nodes->mouseDown(mouseAt(*nodes, {nodeX(dragged.bandFrequency(0)), nodeY(12)}));
+        nodes->mouseDrag(mouseAt(*nodes, {nodeX(dragged.bandFrequency(0)), nodeY(12) + plotHeight / 4}, juce::ModifierKeys::leftButtonModifier | juce::ModifierKeys::shiftModifier));
+        nodes->mouseUp(mouseAt(*nodes, {0, 0}));
+        require(std::abs(gain() - 9) < 0.05f, "Shift drags at a quarter of the speed");
+        auto q = [&](int band) { return dragged.state.getRawParameterValue(params::bandId(band, "q"))->load(); };
+        const juce::MouseWheelDetails tick {0, 0.1f, false, false, false};
+        dragged.history().manager().clearUndoHistory();
+        nodes->mouseWheelMove(mouseAt(*nodes, {nodeX(dragged.bandFrequency(3)), nodeY(0)}), tick);
+        nodes->mouseWheelMove(mouseAt(*nodes, {nodeX(dragged.bandFrequency(3)), nodeY(0)}), tick);
+        nodes->mouseWheelMove(mouseAt(*nodes, {nodeX(1000), nodeY(-20)}), tick);
+        nodes->mouseExit(mouseAt(*nodes, {0, 0}));
+        require(q(3) > 0.9f && std::abs(q(0) - 0.71f) < 0.01f, "the wheel changes the Q of the band under the cursor only");
+        dragged.history().undo();
+        require(std::abs(q(3) - 0.71f) < 0.01f, "one scroll is one undo step");
+    }
+    {
         require(processor.getNumPrograms() == 11, "factory bank is in the DAW program list");
         require(processor.getProgramName(0) == "Flat" && processor.getProgramName(6) == "Side high-pass", "factory program names");
         TunerProcessor programs;

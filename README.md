@@ -20,7 +20,7 @@ Place a band on Stereo, Left, Right, Mid, or Side. Stereo is the default, so old
 
 Turn on **Snap to notes** to tune bands to semitones, including host automation. Set the A4 reference from 400 to 480 Hz to match your tuning. Choose a note and octave, or step one semitone at a time. Display notes as sharps or flats. Turn snapping off for free tuning; the display still shows the nearest note and cents.
 
-Drag a band on the graph to change frequency and gain. Scroll over it to change Q. Double-click a band to bypass it. Hover to read frequency and note. With the analyzer on, the graph also shows audio level. Alt/Option-click to move the selected band to that frequency; turn snapping off for exact placement.
+Drag a band on the graph to change frequency and gain, and hold Shift for fine moves. Scroll over a band to change its Q. Double-click a band to bypass it. Hover to read frequency and note. With the analyzer on, the graph also shows audio level. Alt/Option-click to move the selected band to that frequency; turn snapping off for exact placement.
 
 ## Spectrum display
 
