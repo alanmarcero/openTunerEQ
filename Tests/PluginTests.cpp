@@ -439,6 +439,25 @@ int main(int argc, char** argv) {
     require(listener.ends == 1, "closing editor ends active host gesture");
     frequencyParameter->removeListener(&listener);
     {
+        auto folder = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("openTunerEQ-confirm-test");
+        folder.deleteRecursively();
+        TunerProcessor confirming(folder);
+        require(confirming.savePreset("Doomed"), "a user preset saves to the given folder");
+        ui::Theme look;
+        auto browser = suite::createPresetBrowser(confirming, look);
+        browser->setSize(440, 460);
+        const auto rows = confirming.presets().filtered({});
+        const auto doomed = std::find_if(rows.begin(), rows.end(), [](const suite::PresetStore::Item& item) { return item.name == "Doomed"; });
+        dynamic_cast<juce::ListBox*>(find(find, *browser, "presetList"))->selectRow(static_cast<int>(std::distance(rows.begin(), doomed)));
+        auto* remove = dynamic_cast<juce::TextButton*>(find(find, *browser, "presetDelete"));
+        remove->onClick();
+        require(remove->getButtonText() == "Delete?" && folder.getChildFile("Doomed.xml").existsAsFile(), "the first Delete click only asks");
+        remove->onClick();
+        require(remove->getButtonText() == "Delete" && !folder.getChildFile("Doomed.xml").existsAsFile(), "a second Delete click deletes");
+        browser.reset();
+        folder.deleteRecursively();
+    }
+    {
         TunerProcessor named;
         std::unique_ptr<juce::AudioProcessorEditor> view(named.createEditor());
         auto* previous = dynamic_cast<juce::TextButton*>(find(find, *view, "presetPrevious"));

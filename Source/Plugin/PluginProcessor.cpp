@@ -10,7 +10,7 @@ juce::StringArray factoryNames() {
     return names;
 }
 }
-TunerProcessor::TunerProcessor()
+TunerProcessor::TunerProcessor(juce::File presetFolder)
     : AudioProcessor(BusesProperties().withInput("Input", juce::AudioChannelSet::stereo(), true)
                                       .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       state(*this, nullptr, "openTunerEQ", params::layout()),
@@ -18,7 +18,7 @@ TunerProcessor::TunerProcessor()
                   [this](const juce::MemoryBlock& block) { readParameters(block); }),
       abCompare([this](juce::MemoryBlock& block) { writeParameters(block); },
                 [this](const juce::MemoryBlock& block) { readParameters(block); }, undoHistory),
-      presetStore("openTunerEQ", factoryNames()) {
+      presetStore("openTunerEQ", factoryNames(), std::move(presetFolder)) {
     for (int i = 0; i < 5; ++i) {
         auto get = [&](const char* key) { return state.getRawParameterValue(params::bandId(i, key)); };
         values[static_cast<size_t>(i)] = {get("enabled"), get("shape"), get("freq"), get("gain"), get("q"), get("slope"), get("placement"), get("dyn"), get("drive")};

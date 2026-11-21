@@ -3,13 +3,14 @@
 #include "Theme.h"
 namespace suite {
 namespace {
-class Browser final : public juce::Component, private juce::ListBoxModel {
+class Browser final : public juce::Component, private juce::ListBoxModel, private juce::Timer {
 public:
     Browser(TunerProcessor& processorIn, juce::LookAndFeel& feel) : processor(processorIn), presets(processorIn.presets()) {
         setLookAndFeel(&feel);
         search.setTextToShowWhenEmpty("Search presets", ui::muted);
         search.setComponentID("presetSearch");
         search.onTextChange = [this] { reload(); };
+        list.setComponentID("presetList");
         list.setRowHeight(40);
         list.setColour(juce::ListBox::backgroundColourId, ui::panel);
         list.setColour(juce::ListBox::outlineColourId, ui::muted.withAlpha(0.2f));
@@ -21,10 +22,18 @@ public:
         renameButton.setComponentID("presetRename");
         deleteButton.setComponentID("presetDelete");
         loadButton.onClick = [this] { loadSelected(); };
-        saveButton.onClick = [this] { askName("Save preset", "Saved presets go in your Documents folder.", "My preset", [this](const juce::String& name) {
-            if (processor.savePreset(name)) reload();
-            else status.setText("That name is reserved or invalid.", juce::dontSendNotification);
-        }); };
+        saveButton.onClick = [this] {
+            if (armed == &saveButton) { const auto replace = pending; disarm(); replace(); return; }
+            askName("Save preset", "Saved presets go in your Documents folder.", "My preset", [this](const juce::String& name) {
+                auto save = [this, name] {
+                    if (processor.savePreset(name)) reload();
+                    else status.setText("That name is reserved or invalid.", juce::dontSendNotification);
+                };
+                if (!presets.directory().getChildFile(PresetStore::cleanName(name) + ".xml").existsAsFile()) { save(); return; }
+                arm(saveButton, "Replace?", save);
+                status.setText("A preset named " + name + " exists. Click Replace? to overwrite it.", juce::dontSendNotification);
+            });
+        };
         renameButton.onClick = [this] {
             if (const auto* item = selected()) if (!item->factory)
                 askName("Rename preset", "Factory presets stay read-only.", item->name, [this, old = *item](const juce::String& name) {
@@ -32,7 +41,9 @@ public:
                 });
         };
         deleteButton.onClick = [this] {
-            if (const auto* item = selected()) if (!item->factory && processor.presets().remove(*item)) reload();
+            if (armed == &deleteButton) { const auto remove = pending; disarm(); remove(); return; }
+            if (const auto* item = selected()) if (!item->factory)
+                arm(deleteButton, "Delete?", [this, item = *item] { if (presets.remove(item)) reload(); });
         };
         status.setColour(juce::Label::textColourId, ui::muted);
         status.setFont(ui::font(12));
@@ -79,10 +90,12 @@ private:
             reload();
             return;
         }
+        disarm();
         updateActions();
     }
     void listBoxItemDoubleClicked(int, const juce::MouseEvent&) override { loadSelected(); }
     void reload() {
+        disarm();
         rows = presets.filtered(search.getText());
         list.updateContent();
         list.repaint();
@@ -104,6 +117,19 @@ private:
         processor.loadPreset(*item);
         status.setText(item->factory ? "Factory presets stay read-only." : "Loaded " + item->name + ".", juce::dontSendNotification);
     }
+    // Replace and delete take a second click within 3 s. Meanwhile the button asks the question.
+    void arm(juce::TextButton& button, const juce::String& question, std::function<void()> action) {
+        disarm();
+        armed = &button; pending = std::move(action);
+        button.setButtonText(question);
+        startTimer(3000);
+    }
+    void disarm() {
+        stopTimer();
+        armed = nullptr; pending = nullptr;
+        saveButton.setButtonText("Save"); deleteButton.setButtonText("Delete");
+    }
+    void timerCallback() override { disarm(); }
     void askName(const juce::String& title, const juce::String& message, const juce::String& initial, std::function<void(const juce::String&)> done) {
         auto* window = new juce::AlertWindow(title, message, juce::AlertWindow::NoIcon);
         window->addTextEditor("name", initial, "Preset name");
@@ -124,8 +150,11 @@ private:
     juce::TextButton loadButton {"Load"}, saveButton {"Save"}, renameButton {"Rename"}, deleteButton {"Delete"};
     juce::Label status;
     juce::Array<PresetStore::Item> rows;
+    juce::TextButton* armed = nullptr;
+    std::function<void()> pending;
 };
 }
+std::unique_ptr<juce::Component> createPresetBrowser(TunerProcessor& processor, juce::LookAndFeel& feel) { return std::make_unique<Browser>(processor, feel); }
 SuiteBar::SuiteBar(TunerProcessor& p) : processor(p), history(p.history()), compare(p.compare()), presets(p.presets()) {
     for (auto* button : {&undoButton, &redoButton, &slotA, &slotB, &copyAtoB, &copyBtoA, &presetButton, &previousButton, &nextButton}) addAndMakeVisible(button);
     undoButton.setComponentID("undo"); redoButton.setComponentID("redo");
@@ -187,7 +216,7 @@ void SuiteBar::step(int direction) {
 }
 void SuiteBar::openBrowser() {
     if (callout != nullptr) { callout->dismiss(); return; }
-    auto content = std::make_unique<Browser>(processor, getLookAndFeel());
+    auto content = createPresetBrowser(processor, getLookAndFeel());
     content->setSize(440, 460);
     auto& box = juce::CallOutBox::launchAsynchronously(std::move(content), presetButton.getScreenBounds(), nullptr);
     callout = &box;

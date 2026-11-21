@@ -7,7 +7,8 @@
 #include "PresetStore.h"
 class TunerProcessor final : public juce::AudioProcessor {
 public:
-    TunerProcessor();
+    // Tests pass a folder for user presets; the plugin uses Documents.
+    explicit TunerProcessor(juce::File presetFolder = {});
     void prepareToPlay(double, int) override;
     void releaseResources() override {}
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;

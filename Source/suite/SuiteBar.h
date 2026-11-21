@@ -4,6 +4,8 @@
 #include "PresetStore.h"
 class TunerProcessor;
 namespace suite {
+// The preset browser that the Presets button opens.
+std::unique_ptr<juce::Component> createPresetBrowser(TunerProcessor&, juce::LookAndFeel&);
 class SuiteBar final : public juce::Component {
 public:
     explicit SuiteBar(TunerProcessor&);
