@@ -422,6 +422,21 @@ int main(int argc, char** argv) {
     require(listener.ends == 1, "closing editor ends active host gesture");
     frequencyParameter->removeListener(&listener);
     {
+        TunerProcessor sized;
+        std::unique_ptr<juce::AudioProcessorEditor> view(sized.createEditor());
+        require(view->getConstrainer()->getMinimumWidth() <= 812 && view->getConstrainer()->getMaximumWidth() >= 1740, "the editor resizes from 70% to 150%");
+        view->setSize(812, 630);
+        auto* shrunk = dynamic_cast<ResponseGraph*>(findType(findType, *view, false));
+        require(std::abs(view->getLocalArea(shrunk, shrunk->getLocalBounds()).getWidth() - 1112 * 0.7f) < 2, "the layout scales with the editor");
+        view.reset();
+        juce::MemoryBlock saved;
+        sized.getStateInformation(saved);
+        TunerProcessor reopened;
+        reopened.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
+        view.reset(reopened.createEditor());
+        require(view->getWidth() == 812 && view->getHeight() == 630, "the editor reopens at its saved size");
+    }
+    {
         TunerProcessor dragged;
         dragged.setParameter("band0.gain", 6);
         std::unique_ptr<juce::AudioProcessorEditor> view(dragged.createEditor());

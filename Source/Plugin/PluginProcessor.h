@@ -44,6 +44,7 @@ public:
     float artworkPhase() const noexcept { return artworkClock.currentPhase(); }
     std::atomic<float> peak {0};
     std::atomic<int> activeSelectedBand {0};
+    std::atomic<int> editorWidth {1160};
 private:
     ArtworkBeatClock artworkClock;
     struct BandValues { std::atomic<float> *enabled, *shape, *freq, *gain, *q, *slope, *placement, *dyn, *drive; };

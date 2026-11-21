@@ -54,9 +54,11 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     octaveUp.setTooltip("Tune the selected band up one octave");
     octaveDown.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) - 12); };
     octaveUp.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) + 12); };
-    setResizable(true, true); setResizeLimits(1160, 900, 1740, 1350);
+    // Read the saved width first: setResizeLimits lays the editor out at the minimum size.
+    const auto width = juce::jlimit(812, 1740, processor.editorWidth.load());
+    setResizable(true, true); setResizeLimits(812, 630, 1740, 1350);
     if (auto* constrainer = getConstrainer()) constrainer->setFixedAspectRatio(1160.0 / 900.0);
-    setSize(1160, 900);
+    setSize(width, juce::roundToInt(width * 900.0 / 1160.0));
     setWantsKeyboardFocus(true);
     select(0); timerCallback(); startTimerHz(24);
 }
@@ -96,7 +98,10 @@ void TunerEditor::timerCallback() {
     repaint();
 }
 void TunerEditor::resized() {
-    content.setBounds(0, 0, 1160, 900); content.setTransform(juce::AffineTransform::scale(getWidth() / 1160.0f));
+    const auto factor = std::min(getWidth() / 1160.0f, getHeight() / 900.0f);
+    content.setBounds(0, 0, 1160, 900);
+    content.setTransform(juce::AffineTransform::scale(factor).translated((getWidth() - 1160 * factor) / 2, (getHeight() - 900 * factor) / 2));
+    processor.editorWidth = getWidth();
     snap.setBounds(348, 16, 114, 40); flats.setBounds(468, 16, 86, 40);
     soloSelected.setBounds(560, 16, 86, 40); autoGain.setBounds(652, 16, 86, 40);
     scale.setBounds(778, 18, 116, 36);
@@ -124,7 +129,7 @@ bool TunerEditor::keyPressed(const juce::KeyPress& key) {
 }
 void TunerEditor::paint(juce::Graphics& g) {
     g.fillAll(ui::background);
-    g.addTransform(juce::AffineTransform::scale(getWidth() / 1160.0f));
+    g.addTransform(content.getTransform());
     g.setOpacity(0.9f); g.drawImage(faceplate, juce::Rectangle<float>(0, 0, 1160, 900), juce::RectanglePlacement::fillDestination); g.setOpacity(1);
     g.setColour(ui::background.withAlpha(0.88f)); g.fillRect(0, 0, 1160, 900);
     g.setColour(ui::copper.withAlpha(0.35f)); g.drawHorizontalLine(64, 24, 1136);
