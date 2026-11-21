@@ -200,7 +200,7 @@ void Equalizer::setSettings(const Settings& settings, bool immediately) noexcept
         auto& band = bands[i];
         band.target = audibleBand(settings, i);
         band.target.frequency = effectiveFrequency(band.target.frequency, settings.snap, rate, settings.a4);
-        band.target.compensatePhase = settings.phaseCompensation && isCut(settings.bands[i].shape) && band.target.placement != Placement::Stereo;
+        band.target.compensatePhase = settings.phaseCompensation && isOneSidedCut(settings.bands[i]);
         if (immediately) {
             band.active = 0; band.remaining = band.priming = 0; band.wet = band.target.enabled ? 1 : 0;
             for (auto& bank : band.banks) {
@@ -215,12 +215,12 @@ void Equalizer::setSettings(const Settings& settings, bool immediately) noexcept
 }
 void Equalizer::updateFilters() noexcept {
     for (auto& band : bands) {
+        band.dynamicGainDb = 0;
         if (!band.target.enabled && band.wet == 0.0 && band.remaining == 0) {
             continue;
         }
         auto target = band.target;
-        band.dynamicGainDb = 0;
-        if (usesGain(target.shape) && target.dynamicDb != 0.0) {
+        if (usesDynamics(target)) {
             if (band.detectorHz != target.frequency || band.detectorQ != target.q) {
                 BandSettings detector;
                 detector.shape = Shape::BandPass; detector.frequency = target.frequency; detector.q = target.q;
@@ -242,12 +242,10 @@ void Equalizer::updateFilters() noexcept {
         if (band.remaining > 0) next.update(target, rate, smooth);
     }
 }
-double Equalizer::dynamicGainDb(size_t band) const noexcept {
-    return bands[band].target.enabled ? bands[band].dynamicGainDb : 0.0;
-}
+double Equalizer::dynamicGainDb(size_t band) const noexcept { return bands[band].dynamicGainDb; }
 double Equalizer::detectorLevel(size_t band) const noexcept {
     const auto& target = bands[band].target;
-    return target.enabled && usesGain(target.shape) && target.dynamicDb != 0.0 ? bands[band].envelope : 0.0;
+    return target.enabled && usesDynamics(target) ? bands[band].envelope : 0.0;
 }
 void Equalizer::process(float* const* channels, int channelCount, int samples) noexcept {
     channelCount = std::clamp(channelCount, 0, 2);
@@ -283,7 +281,7 @@ void Equalizer::process(float* const* channels, int channelCount, int samples) n
             const auto place = band.target.placement;
 
             // The detector hears what the band processes, band-limited to the band's note.
-            if (usesGain(band.target.shape) && band.target.dynamicDb != 0.0) {
+            if (usesDynamics(band.target)) {
                 auto input = wet[0];
                 if (channelCount == 2 && place == Placement::Right) input = wet[1];
                 if (channelCount == 2 && place == Placement::Mid) input = 0.5 * (wet[0] + wet[1]);

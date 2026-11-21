@@ -10,6 +10,10 @@ bool isCut(Shape s) noexcept { return s == Shape::HighPass || s == Shape::LowPas
 bool usesQ(const BandSettings& s) noexcept {
     return usesGain(s.shape) || s.shape == Shape::Notch || s.shape == Shape::BandPass || (isCut(s.shape) && s.slope == 12);
 }
+bool changesGain(const BandSettings& s) noexcept { return usesGain(s.shape) && (s.gainDb != 0.0 || s.dynamicDb != 0.0); }
+bool usesQLaw(const BandSettings& s) noexcept { return s.shape == Shape::Bell && changesGain(s); }
+bool usesDynamics(const BandSettings& s) noexcept { return usesGain(s.shape) && s.dynamicDb != 0.0; }
+bool isOneSidedCut(const BandSettings& s) noexcept { return isCut(s.shape) && s.placement != Placement::Stereo; }
 Coefficients directForm(double b0, double b1, double b2, double a1, double a2, double dPosHint, double sumBHint) noexcept {
     const auto dPos = dPosHint > 0.0 ? dPosHint : std::max(1.0e-30, 1.0 + a1 + a2);
     const auto dNeg = std::max(1.0e-30, 1.0 - a1 + a2);

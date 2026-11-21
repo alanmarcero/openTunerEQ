@@ -92,7 +92,8 @@ void ResponseGraph::animate() {
         }
     }
     const auto bands = processor.readSettings().bands;
-    if (!spectrumChanged && !historyScrolls && !std::any_of(bands.begin(), bands.end(), params::usesDynamics)) return;
+    const auto dynamicBand = std::any_of(bands.begin(), bands.end(), [](const ote::BandSettings& b) { return b.enabled && ote::usesDynamics(b); });
+    if (!spectrumChanged && !historyScrolls && !dynamicBand) return;
     repaint(plot().getSmallestIntegerContainer());
     // The hover readout shows the level under the cursor.
     if (hoverX >= 0) repaint(0, 0, analyzerToggle.getX(), 40);
@@ -215,7 +216,7 @@ void ResponseGraph::paint(juce::Graphics& g) {
             ui::text(g, caption, label, 11, color, juce::Justification::centred, true);
         }
         const auto& band = settings.bands[static_cast<size_t>(i)];
-        if (params::usesDynamics(band)) {
+        if (band.enabled && ote::usesDynamics(band)) {
             // The line spans the dynamic range. The ring shows the live gain.
             g.setColour(color.withAlpha(0.45f)); g.drawLine(pt.x, pt.y, pt.x, yFor(band.gainDb + band.dynamicDb), 3);
             const auto live = yFor(band.gainDb + processor.dynamicGains[static_cast<size_t>(i)].load());

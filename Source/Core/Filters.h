@@ -21,6 +21,13 @@ struct BandSettings {
 bool usesGain(Shape shape) noexcept;
 bool isCut(Shape shape) noexcept;
 bool usesQ(const BandSettings& settings) noexcept;
+// The band boosts or cuts, statically or through its dynamic range. Drive acts only then.
+bool changesGain(const BandSettings&) noexcept;
+// Only a bell that changes gain reads the Q law.
+bool usesQLaw(const BandSettings&) noexcept;
+bool usesDynamics(const BandSettings&) noexcept;
+// Phase alignment applies to a cut on one channel, Mid or Side.
+bool isOneSidedCut(const BandSettings&) noexcept;
 struct Coefficients {
     double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0;
     double svfA1 = 0.25, svfA2 = 0.25, svfA3 = 0.25, m0 = 1, m1 = 0, m2 = 0;

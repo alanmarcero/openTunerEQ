@@ -140,12 +140,12 @@ void TunerEditor::timerCallback() {
     std::array<ote::BandSettings, 5> bands;
     for (size_t i = 0; i < bands.size(); ++i) bands[i] = ote::audibleBand(settings, i);
     const bool oneSidedCut = std::any_of(bands.begin(), bands.end(), [](const ote::BandSettings& b) {
-        return b.enabled && ote::isCut(b.shape) && b.placement != ote::Placement::Stereo;
+        return b.enabled && ote::isOneSidedCut(b);
     });
     const bool shapedBell = std::any_of(bands.begin(), bands.end(), [](const ote::BandSettings& b) {
-        return b.enabled && b.shape == ote::Shape::Bell && (std::abs(b.gainDb) > params::zeroDb || std::abs(b.dynamicDb) > params::zeroDb);
+        return b.enabled && ote::usesQLaw(b);
     });
-    const bool dynamicBand = std::any_of(bands.begin(), bands.end(), params::usesDynamics);
+    const bool dynamicBand = std::any_of(bands.begin(), bands.end(), [](const ote::BandSettings& b) { return b.enabled && ote::usesDynamics(b); });
     ui::showActive(phaseComp, "Give the untouched channel of a Left, Right, Mid or Side cut the cut's passband phase.",
                    oneSidedCut ? "" : "Place a high-pass or low-pass band on Left, Right, Mid or Side to use it.");
     ui::showActive(qMode, "Bell width law. Symmetric matches boost and cut widths, Constant keeps Q fixed, Proportional narrows as gain grows.",

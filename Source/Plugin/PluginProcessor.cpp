@@ -50,6 +50,8 @@ bool TunerProcessor::isBusesLayoutSupported(const BusesLayout& layout) const {
 }
 ote::Settings TunerProcessor::readSettings() const noexcept {
     auto safe = [](const std::atomic<float>* p, float fallback) { const auto v = p->load(); return std::isfinite(v) ? v : fallback; };
+    // The 0.1 dB grid stores 0 dB as about 4e-7. Rounding to the grid makes 0 exact for the engine and the UI.
+    auto tenths = [](double value) { return std::round(value * 10.0) / 10.0; };
     ote::Settings result;
     result.snap = snap->load() > 0.5f; result.bypass = bypass->load() > 0.5f; result.outputDb = safe(output, 0);
     result.a4 = safe(reference, static_cast<float>(ote::standardPitch));
@@ -63,11 +65,11 @@ ote::Settings TunerProcessor::readSettings() const noexcept {
         const auto& v = values[i]; auto& b = result.bands[i];
         b.enabled = v.enabled->load() > 0.5f;
         b.shape = static_cast<ote::Shape>(juce::jlimit(0, 6, static_cast<int>(safe(v.shape, 0))));
-        b.frequency = safe(v.freq, 440); b.gainDb = safe(v.gain, 0) * result.scale; b.q = safe(v.q, 0.7071f);
+        b.frequency = safe(v.freq, 440); b.gainDb = tenths(safe(v.gain, 0)) * result.scale; b.q = safe(v.q, 0.7071f);
         b.slope = params::slopeValues[static_cast<size_t>(juce::jlimit(0, 3, static_cast<int>(safe(v.slope, 0))))];
         b.placement = static_cast<ote::Placement>(juce::jlimit(0, 4, static_cast<int>(std::lround(safe(v.placement, 0)))));
         b.qMode = bellLaw;
-        b.dynamicDb = safe(v.dyn, 0) * result.scale;
+        b.dynamicDb = tenths(safe(v.dyn, 0)) * result.scale;
         b.drive = juce::jlimit(0.0, 1.0, safe(v.drive, 0) * 0.01);
     }
     return result;

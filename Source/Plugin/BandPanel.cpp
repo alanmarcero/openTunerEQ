@@ -123,10 +123,10 @@ void BandPanel::refresh() {
     ui::showActive(q, "Width / resonance. Higher Q is narrower.", hint(ote::usesQ(b), "Steep cuts use a fixed Butterworth Q. Choose 12 dB/oct to use it."));
     ui::showActive(slope, "Cut steepness in dB per octave. 96 is steep, not an ideal brick wall.", hint(ote::isCut(b.shape), "Choose High pass or Low pass to use it."));
     ui::showActive(dynamic, "Dynamic range. The band adds this much gain as its note rises above the dynamic threshold. Negative tames resonances.", bandOff);
-    ui::showActive(drive, "Analog-style saturation of this band's boost or cut.", hint(std::abs(b.gainDb) > params::zeroDb || std::abs(b.dynamicDb) > params::zeroDb, "Set a gain or dynamic range to use it."));
+    ui::showActive(drive, "Analog-style saturation of this band's boost or cut.", hint(ote::changesGain(b), "Set a gain or dynamic range to use it."));
     for (auto* label : {&hz, &cents}) label->setAlpha(b.enabled ? 1.0f : ui::inactiveAlpha);
     slope.setVisible(!ote::usesGain(b.shape)); dynamic.setVisible(ote::usesGain(b.shape)); drive.setVisible(ote::usesGain(b.shape));
-    level.setVisible(params::usesDynamics(b)); level.setMarker(static_cast<float>(settings.dynamicThresholdDb));
+    level.setVisible(b.enabled && ote::usesDynamics(b)); level.setMarker(static_cast<float>(settings.dynamicThresholdDb));
     updating = false;
     // The panel paints only the on state and the selection.
     if (b.enabled == bandEnabled) return;

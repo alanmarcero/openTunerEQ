@@ -544,6 +544,19 @@ int main() {
         check(audibleBand(soloed, 2).enabled && audibleBand(soloed, 2).shape == Shape::BandPass && audibleBand(soloed, 2).q == 1.2,
               "solo plays the soloed band as a band pass with Q of at least 1.2");
         check(!audibleBand(soloed, 0).enabled && !audibleBand(soloed, 4).enabled, "solo mutes the other bands");
+        BandSettings bell, proportional;
+        proportional.qMode = QMode::Proportional;
+        check(!changesGain(bell) && !usesQLaw(bell) && !usesDynamics(bell), "a flat bell changes nothing");
+        near(responseDb(bell, 48000, 1500), responseDb(proportional, 48000, 1500), 1e-9, "a flat bell ignores the Q law");
+        bell.gainDb = proportional.gainDb = 6;
+        check(usesQLaw(bell) && std::abs(responseDb(bell, 48000, 1500) - responseDb(proportional, 48000, 1500)) > 0.01, "a boosted bell follows the Q law");
+        bell.gainDb = 0; bell.dynamicDb = 3;
+        check(usesDynamics(bell) && changesGain(bell), "a dynamic range alone changes gain");
+        BandSettings cut;
+        cut.shape = Shape::HighPass; cut.placement = Placement::Side;
+        check(isOneSidedCut(cut) && !changesGain(cut), "a Side high-pass is a one-sided cut");
+        cut.placement = Placement::Stereo;
+        check(!isOneSidedCut(cut), "a Stereo high-pass is not one-sided");
         soloed.soloBand = -1;
         check(audibleBand(soloed, 2).shape == Shape::Bell && audibleBand(soloed, 0).enabled, "without solo every band plays as set");
     }
