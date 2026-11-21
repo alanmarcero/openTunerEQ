@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.9.1
+
+- **UI & Suite Fixes:** UI polish, unit formatting and typed-value entry, inactive control dimming, per-slot A/B undo, inline preset confirms, peak-hold meters, uniform scaling, and screen-reader titles.
+
 ## v1.9.0
 
 - **Matched & ZDF Filters:** Upgraded low-pass filters to reach `-inf dB` at Nyquist without stopband leakage, and switched to click-free ZDF TPT SVFs across fast pitch-snapped sweeps.
