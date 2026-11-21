@@ -26,22 +26,23 @@ private:
     ParameterUndo& owner;
     juce::MemoryBlock before, after;
 };
-ParameterUndo::ParameterUndo(juce::AudioProcessor& p) : processor(p) {
+ParameterUndo::ParameterUndo(juce::AudioProcessor& p, Export exporter, Import importer)
+    : processor(p), exportState(std::move(exporter)), importState(std::move(importer)) {
     for (auto* parameter : processor.getParameters()) parameter->addListener(this);
 }
 ParameterUndo::~ParameterUndo() {
     for (auto* parameter : processor.getParameters()) parameter->removeListener(this);
 }
-void ParameterUndo::undo() { if (undoManager.canUndo()) undoManager.undo(); }
-void ParameterUndo::redo() { if (undoManager.canRedo()) undoManager.redo(); }
+void ParameterUndo::undo() { if (manager().canUndo()) manager().undo(); }
+void ParameterUndo::redo() { if (manager().canRedo()) manager().redo(); }
 juce::MemoryBlock ParameterUndo::capture() const {
     juce::MemoryBlock block;
-    processor.getStateInformation(block);
+    exportState(block);
     return block;
 }
 void ParameterUndo::restore(const juce::MemoryBlock& block) {
     juce::ScopedValueSetter<int> guard(suppress, suppress + 1);
-    processor.setStateInformation(block.getData(), static_cast<int>(block.getSize()));
+    importState(block);
 }
 void ParameterUndo::applyChange(const juce::String& name, std::function<void()> change) {
     const auto before = capture();
@@ -51,8 +52,8 @@ void ParameterUndo::applyChange(const juce::String& name, std::function<void()> 
     }
     const auto after = capture();
     if (before == after) return;
-    undoManager.beginNewTransaction(name);
-    undoManager.perform(new StateAction(*this, before, after));
+    manager().beginNewTransaction(name);
+    manager().perform(new StateAction(*this, before, after));
 }
 void ParameterUndo::parameterGestureChanged(int index, bool starting) {
     if (suppress > 0) return;
@@ -62,7 +63,7 @@ void ParameterUndo::parameterGestureChanged(int index, bool starting) {
     if (!juce::isPositiveAndBelow(index, parameters.size())) return;
     auto* parameter = parameters[index];
     if (starting) {
-        if (openGestures == 0) undoManager.beginNewTransaction("Edit");
+        if (openGestures == 0) manager().beginNewTransaction("Edit");
         ++openGestures;
         for (const auto& entry : gestureStart) if (entry.first == parameter) return;
         gestureStart.emplace_back(parameter, parameter->getValue());
@@ -76,6 +77,6 @@ void ParameterUndo::parameterGestureChanged(int index, bool starting) {
         if (std::abs(to - entry.second) > 1.0e-6f) changes.push_back({entry.first, entry.second, to});
     }
     gestureStart.clear();
-    if (!changes.empty()) undoManager.perform(new GroupAction(*this, std::move(changes)));
+    if (!changes.empty()) manager().perform(new GroupAction(*this, std::move(changes)));
 }
 }

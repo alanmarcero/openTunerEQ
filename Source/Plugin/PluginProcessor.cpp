@@ -14,7 +14,8 @@ TunerProcessor::TunerProcessor()
     : AudioProcessor(BusesProperties().withInput("Input", juce::AudioChannelSet::stereo(), true)
                                       .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       state(*this, nullptr, "openTunerEQ", params::layout()),
-      undoHistory(*this),
+      undoHistory(*this, [this](juce::MemoryBlock& block) { writeParameters(block); },
+                  [this](const juce::MemoryBlock& block) { readParameters(block); }),
       abCompare([this](juce::MemoryBlock& block) { writeParameters(block); },
                 [this](const juce::MemoryBlock& block) { readParameters(block); }, undoHistory),
       presetStore("openTunerEQ", factoryNames()) {
@@ -119,14 +120,25 @@ void TunerProcessor::injectDefaults(juce::ValueTree& tree) const {
     for (int i = 0; i < 5; ++i)
         for (const char* key : {"placement", "dyn", "drive"}) add(params::bandId(i, key), 0.0f);
 }
+// A slot's state: the parameters plus the loaded preset, so A/B and undo restore its name.
 void TunerProcessor::writeParameters(juce::MemoryBlock& dest) {
     dest.reset();
-    if (auto xml = state.copyState().createXml()) copyXmlToBinary(*xml, dest);
+    auto xml = state.copyState().createXml();
+    if (xml == nullptr) return;
+    auto* preset = xml->createNewChildElement("preset");
+    preset->setAttribute("name", presetName);
+    preset->setAttribute("program", program);
+    copyXmlToBinary(*xml, dest);
 }
 void TunerProcessor::readParameters(const juce::MemoryBlock& block) {
     auto xml = getXmlFromBinary(block.getData(), static_cast<int>(block.getSize()));
     if (xml == nullptr || !xml->hasTagName(state.state.getType())) return;
     if (auto* extra = xml->getChildByName("suite")) xml->removeChildElement(extra, true);
+    if (auto* preset = xml->getChildByName("preset")) {
+        presetName = preset->getStringAttribute("name");
+        program = preset->getIntAttribute("program", program);
+        xml->removeChildElement(preset, true);
+    }
     auto tree = juce::ValueTree::fromXml(*xml);
     if (!tree.isValid()) return;
     injectDefaults(tree);

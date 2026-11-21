@@ -7,23 +7,26 @@ void ABCompare::prime() {
     active = 0;
     exportState(slots[0]);
     slots[1] = slots[0];
+    history.clearSlot(0); history.clearSlot(1); history.selectSlot(0);
 }
 void ABCompare::flushActive() { exportState(slots[static_cast<size_t>(active)]); }
+// A switch swaps histories and is not an undo step, so undo never applies the other slot's state.
 void ABCompare::toggle() {
-    history.applyChange("A/B", [this] {
-        active = 1 - active;
-        if (slots[static_cast<size_t>(active)].getSize() > 0)
-            importState(slots[static_cast<size_t>(active)]);
-    });
+    flushActive();
+    active = 1 - active;
+    history.selectSlot(active);
+    if (slots[static_cast<size_t>(active)].getSize() > 0)
+        importState(slots[static_cast<size_t>(active)]);
 }
 void ABCompare::copyAtoB() { copyBetween(0, 1); }
 void ABCompare::copyBtoA() { copyBetween(1, 0); }
+// A copy replaces the target slot, so its history no longer applies.
 void ABCompare::copyBetween(int from, int to) {
-    history.applyChange(from == 0 ? "Copy A to B" : "Copy B to A", [this, from, to] {
-        slots[static_cast<size_t>(to)] = slots[static_cast<size_t>(from)];
-        if (active == to && slots[static_cast<size_t>(to)].getSize() > 0)
-            importState(slots[static_cast<size_t>(to)]);
-    });
+    flushActive();
+    slots[static_cast<size_t>(to)] = slots[static_cast<size_t>(from)];
+    history.clearSlot(to);
+    if (active == to && slots[static_cast<size_t>(to)].getSize() > 0)
+        importState(slots[static_cast<size_t>(to)]);
 }
 void ABCompare::writeXml(juce::XmlElement& suite) const {
     suite.setAttribute("active", active);
@@ -34,6 +37,7 @@ bool ABCompare::readXml(const juce::XmlElement& suite) {
     active = suite.getIntAttribute("active", 0) == 1 ? 1 : 0;
     const auto a = slots[0].fromBase64Encoding(suite.getStringAttribute("a"));
     const auto b = slots[1].fromBase64Encoding(suite.getStringAttribute("b"));
+    history.clearSlot(0); history.clearSlot(1); history.selectSlot(active);
     return a && b && slots[0].getSize() > 0 && slots[1].getSize() > 0;
 }
 }

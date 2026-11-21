@@ -586,6 +586,24 @@ int main(int argc, char** argv) {
         slots.compare().copyAtoB();
         slots.compare().toggle();
         require(std::abs(slots.state.getRawParameterValue("output")->load() + 6) < 0.05f, "copy A to B duplicates slot A");
+        {
+            TunerProcessor perSlot;
+            auto output = [&] { return perSlot.state.getRawParameterValue("output")->load(); };
+            perSlot.setParameter("output", -6);
+            perSlot.compare().toggle();
+            require(!perSlot.history().manager().canUndo(), "slot B starts with its own empty history");
+            perSlot.history().undo();
+            require(std::abs(output()) < 0.05f, "undo in slot B never applies slot A's state");
+            perSlot.setParameter("output", -3);
+            perSlot.compare().toggle();
+            require(std::abs(output() + 6) < 0.05f && perSlot.history().manager().canUndo(), "slot A keeps its own history");
+            perSlot.history().undo();
+            require(std::abs(output()) < 0.05f, "undo in slot A reverts slot A's edit");
+            perSlot.compare().toggle();
+            require(std::abs(output() + 3) < 0.05f && perSlot.history().manager().canUndo(), "switching back restores slot B and its history");
+            perSlot.compare().copyAtoB();
+            require(std::abs(output()) < 0.05f && !perSlot.history().manager().canUndo(), "copying into a slot clears that slot's history");
+        }
         auto directory = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("openTunerEQ-preset-test");
         directory.deleteRecursively();
         suite::PresetStore store("openTunerEQ", {"Flat", "Kick punch"}, directory);
