@@ -74,24 +74,30 @@ void checkParameterText() {
     require(typed("band0.drive", "50") == 50 && typed("band0.drive", "50%") == 50 && shown("scale", 55) == "55%", "percent controls accept 50 and 50%");
     require(std::abs(typed("band0.gain", "+3.0 dB") - 3) < 0.01f && std::abs(typed("a4", "442.5 Hz") - 442.5f) < 0.01f, "dB and Hz suffixes are accepted");
 }
-void checkButtonLayout(const juce::Component& parent, int minimum) {
+void checkButtonLayout(juce::Component& parent, int minimum) {
+    // Labels and the resize corner may sit over other parts; every other clickable part needs its own space.
+    auto takesSpace = [](const juce::Component& c) {
+        bool clicksSelf = false, clicksChildren = false;
+        c.getInterceptsMouseClicks(clicksSelf, clicksChildren);
+        return c.isVisible() && clicksSelf && dynamic_cast<const juce::Label*>(&c) == nullptr
+            && dynamic_cast<const juce::ResizableCornerComponent*>(&c) == nullptr;
+    };
     for (int i = 0; i < parent.getNumChildComponents(); ++i) {
-        const auto* child = parent.getChildComponent(i);
+        auto* child = parent.getChildComponent(i);
         if (!child->isVisible()) continue;
+        auto* slider = dynamic_cast<juce::Slider*>(child);
+        if (slider != nullptr && slider->isRotary()) {
+            const auto dial = slider->getLookAndFeel().getSliderLayout(*slider).sliderBounds;
+            require(std::min(dial.getWidth(), dial.getHeight()) >= 48, "A dial is too small");
+        }
         const bool actionable = dynamic_cast<const juce::Button*>(child) != nullptr
                              || dynamic_cast<const juce::ComboBox*>(child) != nullptr;
-        if (!actionable) {
-            checkButtonLayout(*child, minimum);
-            continue;
-        }
-        const auto bounds = child->getBounds();
-        require(bounds.getWidth() >= minimum && bounds.getHeight() >= minimum, "An action target is too small");
-        for (int j = i + 1; j < parent.getNumChildComponents(); ++j) {
-            const auto* other = parent.getChildComponent(j);
-            if (!other->isVisible()) continue;
-            if (dynamic_cast<const juce::Button*>(other) || dynamic_cast<const juce::ComboBox*>(other))
-                require(!bounds.intersects(other->getBounds()), "Two action targets overlap");
-        }
+        if (actionable) require(child->getWidth() >= minimum && child->getHeight() >= minimum, "An action target is too small");
+        if (!actionable && slider == nullptr) checkButtonLayout(*child, minimum);
+        if (!takesSpace(*child)) continue;
+        for (int j = i + 1; j < parent.getNumChildComponents(); ++j)
+            if (takesSpace(*parent.getChildComponent(j)))
+                require(!child->getBounds().intersects(parent.getChildComponent(j)->getBounds()), "Two controls or panels overlap");
     }
 }
 
@@ -306,6 +312,9 @@ int main(int argc, char** argv) {
     };
     auto* freq = dynamic_cast<juce::Slider*>(find(find, *editor, "band0.freq"));
     require(freq != nullptr, "frequency UI attached");
+    auto* tuning = dynamic_cast<juce::Slider*>(find(find, *editor, "a4"));
+    require(tuning != nullptr && tuning->isDoubleClickReturnEnabled() && std::abs(tuning->getDoubleClickReturnValue() - 440) < 0.01,
+            "A4 reference double-clicks back to 440 Hz");
     freq->setValue(880, juce::sendNotificationSync);
     require(std::abs(processor.bandFrequency(0) - 880) < 0.01, "frequency control changes DSP");
     auto* pitch = dynamic_cast<juce::ComboBox*>(find(find, *editor, "band0.note"));

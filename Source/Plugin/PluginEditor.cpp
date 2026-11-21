@@ -36,6 +36,7 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     dynThresholdAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "dynThreshold", dynThreshold);
     scaleAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "scale", scale);
     outputAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "output", output);
+    reference.setComponentID("a4");
     reference.setSliderStyle(juce::Slider::LinearHorizontal); reference.setTextBoxStyle(juce::Slider::TextBoxRight, false, 66, 22);
     reference.setTooltip("Tuning reference: the frequency of A4. Notes, snapping and cents follow it.");
     referenceAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "a4", reference);
@@ -106,10 +107,10 @@ void TunerEditor::resized() {
     dynThreshold.setBounds(1020, 72, 116, 36);
     graph.setBounds(24, 118, 1112, 228);
     for (int i = 0; i < 5; ++i) panels[static_cast<size_t>(i)]->setBounds(24 + i * 224, 354, 216, 400);
-    selectedLabel.setBounds(25, 764, 205, 22); rangeLabel.setBounds(25, 786, 205, 18);
-    octaveDown.setBounds(25, 812, 90, 40); octaveUp.setBounds(123, 812, 90, 40);
+    selectedLabel.setBounds(25, 760, 205, 20); rangeLabel.setBounds(25, 780, 205, 16);
+    octaveDown.setBounds(25, 800, 90, 40); octaveUp.setBounds(123, 800, 90, 40);
+    reference.setBounds(50, 846, 182, 24);
     piano.setBounds(240, 764, 896, 88);
-    reference.setBounds(966, 734, 170, 26);
 }
 bool TunerEditor::keyPressed(const juce::KeyPress& key) {
     const auto command = juce::ModifierKeys::commandModifier;
@@ -144,6 +145,6 @@ void TunerEditor::paint(juce::Graphics& g) {
     g.setColour(ui::muted.withAlpha(0.2f)); g.fillRoundedRectangle(944, 56, 122, 5, 2.5f);
     g.setColour(db > 0 ? juce::Colour(0xffe98779) : juce::Colour(0xff48f0c8)); g.fillRoundedRectangle(944, 56, juce::jlimit(0.0f, 122.0f, (db + 60) / 60 * 122), 5, 2.5f);
     ui::text(g, "Alan Marcero", {25, 876, 220, 15}, 10, ui::muted);
-    ui::text(g, "A4", {930, 732, 30, 24}, 12, ui::muted, juce::Justification::centredRight, true);
+    ui::text(g, "A4", {25, 846, 24, 24}, 12, ui::muted, juce::Justification::centredLeft, true);
     ui::text(g, "12-tone equal temperament   /   v" JucePlugin_VersionString, {660, 876, 476, 15}, 10, ui::muted, juce::Justification::centredRight);
 }
