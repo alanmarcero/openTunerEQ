@@ -40,6 +40,8 @@ juce::Label* Theme::createSliderTextBox(juce::Slider& slider) {
     label->setColour(juce::Label::outlineColourId, juce::Colours::transparentBlack);
     label->setColour(juce::Label::textColourId, ink);
     label->setFont(font(13));
+    // A bar draws its caption on the top line, so the value sits below it.
+    if (slider.getSliderStyle() == juce::Slider::LinearBar) label->setBorderSize({14, 2, 2, 2});
     return label;
 }
 void Theme::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float position, float start, float end, juce::Slider& slider) {
@@ -66,7 +68,23 @@ void Theme::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, floa
     const auto direction = juce::Point<float>(std::cos(angle), std::sin(angle));
     g.setColour(accent); g.drawLine({centre + direction * radius * 0.42f, centre + direction * radius * 0.68f}, 2.3f);
 }
-void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, float sliderPos, float, float, const juce::Slider::SliderStyle, juce::Slider& slider) {
+void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, float sliderPos, float, float, const juce::Slider::SliderStyle style, juce::Slider& slider) {
+    if (style == juce::Slider::LinearBar) {
+        const auto area = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y), static_cast<float>(w), static_cast<float>(h)).reduced(0.5f);
+        juce::Path outline; outline.addRoundedRectangle(area, 4);
+        g.setColour(juce::Colour(0xff131a20)); g.fillPath(outline);
+        {
+            // A range across zero fills from zero, so 0 dB draws an empty bar.
+            const auto zero = slider.getMinimum() < 0 ? static_cast<float>(slider.getPositionOfValue(0)) : area.getX();
+            juce::Graphics::ScopedSaveState state(g);
+            g.reduceClipRegion(outline);
+            g.setColour(slider.findColour(juce::Slider::trackColourId).withMultipliedAlpha(slider.isEnabled() ? 1.0f : 0.25f));
+            g.fillRect(juce::Rectangle<float>(std::min(zero, sliderPos), area.getY(), std::abs(sliderPos - zero), area.getHeight()));
+        }
+        g.setColour(muted.withAlpha(0.2f)); g.strokePath(outline, juce::PathStrokeType(1));
+        text(g, slider.getName(), area.withHeight(16).withTrimmedLeft(6), 10, muted);
+        return;
+    }
     const auto cy = static_cast<float>(y) + static_cast<float>(h) / 2;
     g.setColour(juce::Colour(0xff3b4650)); g.fillRoundedRectangle(static_cast<float>(x), cy - 1.5f, static_cast<float>(w), 3, 1.5f);
     auto accent = slider.findColour(juce::Slider::rotarySliderFillColourId);

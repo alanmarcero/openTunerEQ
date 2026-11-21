@@ -34,8 +34,8 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
         slider->setColour(juce::Slider::trackColourId, colour.withAlpha(0.45f));
         slider->setDoubleClickReturnValue(true, 0);
     }
-    dynamic.setTextValueSuffix(" dyn"); dynamic.setComponentID(id("dyn"));
-    drive.setTextValueSuffix(" drive"); drive.setComponentID(id("drive"));
+    dynamic.setName("Dynamic"); dynamic.setComponentID(id("dyn"));
+    drive.setName("Drive"); drive.setComponentID(id("drive"));
     hz.setFont(ui::font(17, true)); hz.setColour(juce::Label::textColourId, ui::ink); hz.setJustificationType(juce::Justification::centred);
     cents.setFont(ui::font(11)); cents.setColour(juce::Label::textColourId, ui::muted); cents.setJustificationType(juce::Justification::centred);
     for (juce::Component* c : std::initializer_list<juce::Component*>{&enabled, &placement, &note, &octave, &down, &up, &frequency, &gain, &q, &shape, &slope, &dynamic, &drive, &hz, &cents}) addAndMakeVisible(c);
