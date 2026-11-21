@@ -28,6 +28,7 @@ private:
     NoteSlider frequency;
     juce::Slider gain, q, dynamic, drive;
     juce::Label hz, cents;
+    ui::LevelMeter level;
     std::unique_ptr<params::State::ButtonAttachment> enabledAttachment;
     std::unique_ptr<params::State::ComboBoxAttachment> shapeAttachment, slopeAttachment, placementAttachment;
     std::unique_ptr<params::State::SliderAttachment> frequencyAttachment, gainAttachment, qAttachment, dynamicAttachment, driveAttachment;

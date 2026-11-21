@@ -219,6 +219,7 @@ void Equalizer::updateFilters() noexcept {
             continue;
         }
         auto target = band.target;
+        band.dynamicGainDb = 0;
         if (usesGain(target.shape) && target.dynamicDb != 0.0) {
             if (band.detectorHz != target.frequency || band.detectorQ != target.q) {
                 BandSettings detector;
@@ -227,7 +228,8 @@ void Equalizer::updateFilters() noexcept {
                 band.detectorHz = target.frequency; band.detectorQ = target.q;
             }
             const auto overDb = 20.0 * std::log10(std::max(band.envelope, 1.0e-9)) - dynamicThresholdDb;
-            target.gainDb += target.dynamicDb * std::clamp(overDb / 12.0, 0.0, 1.0);
+            band.dynamicGainDb = target.dynamicDb * std::clamp(overDb / 12.0, 0.0, 1.0);
+            target.gainDb += band.dynamicGainDb;
         }
         auto& active = band.banks[static_cast<size_t>(band.active)];
         auto& next = band.banks[static_cast<size_t>(1 - band.active)];
@@ -239,6 +241,13 @@ void Equalizer::updateFilters() noexcept {
         active.update(target, rate, smooth);
         if (band.remaining > 0) next.update(target, rate, smooth);
     }
+}
+double Equalizer::dynamicGainDb(size_t band) const noexcept {
+    return bands[band].target.enabled ? bands[band].dynamicGainDb : 0.0;
+}
+double Equalizer::detectorLevel(size_t band) const noexcept {
+    const auto& target = bands[band].target;
+    return target.enabled && usesGain(target.shape) && target.dynamicDb != 0.0 ? bands[band].envelope : 0.0;
 }
 void Equalizer::process(float* const* channels, int channelCount, int samples) noexcept {
     channelCount = std::clamp(channelCount, 0, 2);

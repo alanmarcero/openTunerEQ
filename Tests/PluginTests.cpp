@@ -422,6 +422,33 @@ int main(int argc, char** argv) {
     require(listener.ends == 1, "closing editor ends active host gesture");
     frequencyParameter->removeListener(&listener);
     {
+        TunerProcessor dynamicEq;
+        dynamicEq.setParameter("band0.dyn", 12);
+        dynamicEq.setParameter("dynThreshold", -60);
+        dynamicEq.prepareToPlay(48000, 512);
+        juce::AudioBuffer<float> tone(2, 512);
+        juce::MidiBuffer none;
+        for (int block = 0; block < 48; ++block) {
+            for (int i = 0; i < 512; ++i) {
+                const auto value = static_cast<float>(0.5 * std::sin(2 * juce::MathConstants<double>::pi * dynamicEq.bandFrequency(0) * (block * 512 + i) / 48000));
+                tone.setSample(0, i, value); tone.setSample(1, i, value);
+            }
+            dynamicEq.processBlock(tone, none);
+        }
+        require(dynamicEq.dynamicGains[0].load() > 6, "the processor publishes the live dynamic gain");
+        require(dynamicEq.bandLevels[0].exchange(0) > 0.1f && dynamicEq.bandLevels[0].exchange(0) == 0, "a band level holds its peak until the editor reads it");
+        std::atomic<float> overload {1.5f};
+        ui::LevelMeter meter(overload, ui::bandColours[0]);
+        meter.setSize(8, 36);
+        meter.timerCallback();
+        overload = 0.1f;
+        meter.timerCallback();
+        require(overload.load() == 0 && meter.createComponentSnapshot(meter.getLocalBounds()).getPixelAt(4, 1) == ui::warning,
+                "the meter reads the peak with exchange and latches the clip light");
+        meter.mouseDown(mouseAt(meter, {4, 20}));
+        require(meter.createComponentSnapshot(meter.getLocalBounds()).getPixelAt(4, 1) != ui::warning, "a click clears the clip light");
+    }
+    {
         TunerProcessor soloing;
         soloing.setParameter("analyzerEnabled", 0);
         soloing.activeSelectedBand = 2;

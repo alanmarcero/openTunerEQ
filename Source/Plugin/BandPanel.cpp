@@ -3,7 +3,9 @@
 double NoteSlider::snapValue(double attempted, DragMode) {
     return ote::effectiveFrequency(attempted, processor.readSettings().snap, processor.displaySampleRate(), processor.referencePitch());
 }
-BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), colour(ui::bandColours[static_cast<size_t>(band)]), frequency(p) {
+BandPanel::BandPanel(TunerProcessor& p, int band)
+    : processor(p), index(band), colour(ui::bandColours[static_cast<size_t>(band)]), frequency(p),
+      level(p.bandLevels[static_cast<size_t>(band)], ui::bandColours[static_cast<size_t>(band)]) {
     auto id = [band](const char* key) { return params::bandId(band, key); };
     setName("Band " + juce::String(band + 1));
     enabled.setClickingTogglesState(true); enabled.setColour(juce::TextButton::buttonOnColourId, colour);
@@ -38,7 +40,8 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     drive.setName("Drive"); drive.setComponentID(id("drive"));
     hz.setFont(ui::font(17, true)); hz.setColour(juce::Label::textColourId, ui::ink); hz.setJustificationType(juce::Justification::centred);
     cents.setFont(ui::font(11)); cents.setColour(juce::Label::textColourId, ui::muted); cents.setJustificationType(juce::Justification::centred);
-    for (juce::Component* c : std::initializer_list<juce::Component*>{&enabled, &placement, &note, &octave, &down, &up, &frequency, &gain, &q, &shape, &slope, &dynamic, &drive, &hz, &cents}) addAndMakeVisible(c);
+    for (juce::Component* c : std::initializer_list<juce::Component*>{&enabled, &placement, &note, &octave, &down, &up, &frequency, &gain, &q, &shape, &slope, &dynamic, &drive, &hz, &cents, &level}) addAndMakeVisible(c);
+    level.setTooltip("Level at this band's note. The white line marks the dynamic threshold. Click to clear the clip light.");
     enabledAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, id("enabled"), enabled);
     shapeAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, id("shape"), shape);
     slopeAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, id("slope"), slope);
@@ -119,6 +122,7 @@ void BandPanel::refresh() {
     ui::showActive(drive, "Analog-style saturation of this band's boost or cut.", hint(std::abs(b.gainDb) > params::zeroDb || std::abs(b.dynamicDb) > params::zeroDb, "Set a gain or dynamic range to use it."));
     for (auto* label : {&hz, &cents}) label->setAlpha(b.enabled ? 1.0f : ui::inactiveAlpha);
     slope.setVisible(!ote::usesGain(b.shape)); dynamic.setVisible(ote::usesGain(b.shape)); drive.setVisible(ote::usesGain(b.shape));
+    level.setVisible(ote::usesGain(b.shape)); level.setMarker(static_cast<float>(settings.dynamicThresholdDb));
     updating = false;
     repaint();
 }
@@ -147,5 +151,6 @@ void BandPanel::resized() {
     frequency.setBounds(14, 186, w - 28, 24);
     gain.setBounds(12, 214, (w - 28) / 2, 78); q.setBounds(w / 2 + 2, 214, (w - 28) / 2, 78);
     shape.setBounds(14, 300, w - 28, 40); slope.setBounds(14, 348, w - 28, 40);
-    dynamic.setBounds(14, 348, (w - 32) / 2, 40); drive.setBounds(w / 2 + 2, 348, (w - 32) / 2, 40);
+    const auto bar = (w - 44) / 2;
+    dynamic.setBounds(14, 348, bar, 40); level.setBounds(18 + bar, 350, 8, 36); drive.setBounds(w - 14 - bar, 348, bar, 40);
 }

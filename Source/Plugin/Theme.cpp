@@ -1,4 +1,5 @@
 #include "Theme.h"
+#include <juce_audio_basics/juce_audio_basics.h>
 namespace ui {
 juce::Font font(float size, bool bold) { return juce::Font(juce::FontOptions(size, bold ? juce::Font::bold : juce::Font::plain)); }
 void text(juce::Graphics& g, const juce::String& value, juce::Rectangle<float> bounds, float size, juce::Colour colour, juce::Justification alignment, bool bold) {
@@ -11,6 +12,45 @@ void showActive(juce::Component& control, const juce::String& tooltip, const juc
     // A slider copies its tooltip into its text box only when it creates the box.
     for (auto* child : control.getChildren())
         if (auto* client = dynamic_cast<juce::SettableTooltipClient*>(child)) client->setTooltip(tip);
+}
+LevelMeter::LevelMeter(std::atomic<float>& peak, juce::Colour meterColour) : source(peak), colour(meterColour) { startTimerHz(24); }
+void LevelMeter::setMarker(float decibels) {
+    if (marker == decibels) return;
+    marker = decibels;
+    repaint();
+}
+void LevelMeter::timerCallback() {
+    const auto latest = source.exchange(0.0f);
+    const auto now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    const auto before = std::tuple(level, held, clipped);
+    level = std::max(latest, level * 0.88f);
+    if (level < 1.0e-4f) level = 0;
+    if (latest >= held || now - heldAt > 1.0) { held = latest; heldAt = now; }
+    clipped = clipped || latest > 1.0f;
+    if (std::tuple(level, held, clipped) != before) repaint();
+}
+void LevelMeter::mouseDown(const juce::MouseEvent&) {
+    clipped = false;
+    repaint();
+}
+void LevelMeter::paint(juce::Graphics& g) {
+    auto area = getLocalBounds().toFloat();
+    const bool across = area.getWidth() > area.getHeight();
+    const auto clipLight = across ? area.removeFromRight(3) : area.removeFromTop(3);
+    auto upTo = [&](float decibels) {
+        const auto fraction = juce::jlimit(0.0f, 1.0f, (decibels + 60) / 60);
+        return across ? area.withWidth(area.getWidth() * fraction) : area.withTrimmedTop(area.getHeight() * (1 - fraction));
+    };
+    auto tick = [&](float decibels) {
+        const auto bar = upTo(decibels);
+        g.fillRect(across ? bar.withLeft(bar.getRight() - 1.5f) : bar.withHeight(1.5f));
+    };
+    g.setColour(muted.withAlpha(0.2f)); g.fillRect(area);
+    g.setColour(colour); g.fillRect(upTo(juce::Decibels::gainToDecibels(level, -60.0f)));
+    if (held > 0) tick(juce::Decibels::gainToDecibels(held, -60.0f));
+    g.setColour(ink.withAlpha(0.8f));
+    if (marker) tick(*marker);
+    g.setColour(clipped ? warning : muted.withAlpha(0.2f)); g.fillRect(clipLight);
 }
 Theme::Theme() {
     setColour(juce::Slider::textBoxTextColourId, ink);

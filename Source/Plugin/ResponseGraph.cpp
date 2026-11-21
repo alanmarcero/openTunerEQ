@@ -182,6 +182,13 @@ void ResponseGraph::paint(juce::Graphics& g) {
             g.setColour(ui::background); g.fillRoundedRectangle(label, 4);
             ui::text(g, caption, label, 11, color, juce::Justification::centred, true);
         }
+        const auto& band = settings.bands[static_cast<size_t>(i)];
+        if (active && ote::usesGain(band.shape) && std::abs(band.dynamicDb) > params::zeroDb) {
+            // The line spans the dynamic range; the ring shows the gain the band adds now.
+            g.setColour(color.withAlpha(0.45f)); g.drawLine(pt.x, pt.y, pt.x, yFor(band.gainDb + band.dynamicDb), 3);
+            const auto live = yFor(band.gainDb + processor.dynamicGains[static_cast<size_t>(i)].load());
+            g.setColour(color.withAlpha(0.8f)); g.drawEllipse(pt.x - 7, live - 7, 14, 14, 1.5f);
+        }
         g.setColour(active ? color : ui::panel); g.fillEllipse(pt.x - 9, pt.y - 9, 18, 18);
         g.setColour(color); g.drawEllipse(pt.x - 9, pt.y - 9, 18, 18, 1.2f);
         ui::text(g, juce::String(i + 1), {pt.x - 9, pt.y - 9, 18, 18}, 11, active ? ui::background : color, juce::Justification::centred, true);

@@ -43,6 +43,8 @@ public:
     SpectrumCapture spectrum;
     float artworkPhase() const noexcept { return artworkClock.currentPhase(); }
     std::atomic<float> peak {0};
+    // Per band: the live dynamic gain in dB, and the detector peak since the editor last read it.
+    std::array<std::atomic<float>, 5> dynamicGains {}, bandLevels {};
     std::atomic<int> activeSelectedBand {0};
     std::atomic<int> editorWidth {1160};
 private:

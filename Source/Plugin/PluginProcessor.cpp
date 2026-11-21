@@ -86,6 +86,15 @@ void TunerProcessor::process(juce::AudioBuffer<float>& buffer, bool forceBypass)
     engine.setSettings(settings);
     engine.process(buffer.getArrayOfWritePointers(), std::min(2, buffer.getNumChannels()), buffer.getNumSamples());
     if (afterEQ) spectrum.push(buffer, visualize, true);
+    // The editor reads each level with exchange(0), so keep the highest value until then.
+    auto raise = [](std::atomic<float>& meter, float value) {
+        auto current = meter.load();
+        while (value > current && !meter.compare_exchange_weak(current, value)) {}
+    };
+    for (size_t i = 0; i < bandLevels.size(); ++i) {
+        dynamicGains[i].store(static_cast<float>(engine.dynamicGainDb(i)));
+        raise(bandLevels[i], static_cast<float>(engine.detectorLevel(i)));
+    }
     float level = 0;
     for (int i = 0; i < buffer.getNumChannels(); ++i) level = std::max(level, buffer.getMagnitude(i, 0, buffer.getNumSamples()));
     peak.store(level);

@@ -23,6 +23,10 @@ public:
     void prepare(double sampleRate) noexcept;
     void setSettings(const Settings& settings, bool immediately = false) noexcept;
     void process(float* const* channels, int channelCount, int samples) noexcept;
+    // The gain the dynamic EQ adds to a band now, in dB.
+    double dynamicGainDb(size_t band) const noexcept;
+    // The amplitude the band's detector hears, or zero while the detector is off.
+    double detectorLevel(size_t band) const noexcept;
 private:
     struct Bank {
         std::array<std::array<Biquad, 8>, 2> filters {};
@@ -43,7 +47,7 @@ private:
         int remaining = 0, priming = 0;
         double wet = 1;
         std::array<Biquad, 2> detectors {};
-        double envelope = 0, detectorHz = -1, detectorQ = -1;
+        double envelope = 0, detectorHz = -1, detectorQ = -1, dynamicGainDb = 0;
         std::array<double, 2> driveHistory {};
     };
     std::array<Band, 5> bands;

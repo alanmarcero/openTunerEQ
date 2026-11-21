@@ -9,6 +9,23 @@ void text(juce::Graphics&, const juce::String&, juce::Rectangle<float>, float si
 inline constexpr float inactiveAlpha = 0.4f;
 // An empty hint marks the control active. Otherwise the control dims and its tooltip adds the hint.
 void showActive(juce::Component& control, const juce::String& tooltip, const juce::String& hint);
+// A dBFS meter from -60 to 0 with a 1 s peak hold and a clip light that a click clears.
+// The audio thread keeps the peak since the last read in `source`, and the meter reads it with exchange.
+class LevelMeter final : public juce::Component, public juce::SettableTooltipClient, private juce::Timer {
+public:
+    LevelMeter(std::atomic<float>& source, juce::Colour colour);
+    void setMarker(float decibels);
+    void paint(juce::Graphics&) override;
+    void mouseDown(const juce::MouseEvent&) override;
+    void timerCallback() override;
+private:
+    std::atomic<float>& source;
+    juce::Colour colour;
+    float level = 0, held = 0;
+    double heldAt = 0;
+    bool clipped = false;
+    std::optional<float> marker;
+};
 class Theme final : public juce::LookAndFeel_V4 {
 public:
     Theme();

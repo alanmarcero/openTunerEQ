@@ -112,7 +112,7 @@ void TunerEditor::resized() {
     bypass.setBounds(1072, 16, 68, 40);
     suite.setBounds(24, 70, 700, 40);
     phaseComp.setBounds(732, 70, 100, 40); qMode.setBounds(840, 70, 140, 40);
-    dynThreshold.setBounds(1020, 72, 116, 36);
+    dynThreshold.setBounds(984, 84, 152, 26);
     graph.setBounds(24, 118, 1112, 228);
     for (int i = 0; i < 5; ++i) panels[static_cast<size_t>(i)]->setBounds(24 + i * 224, 354, 216, 400);
     selectedLabel.setBounds(25, 760, 205, 20); rangeLabel.setBounds(25, 780, 205, 16);
@@ -148,7 +148,7 @@ void TunerEditor::paint(juce::Graphics& g) {
     ui::text(g, "VICANEK MATCHED ANALOG FILTER ENGINE", {86, 36, 250, 16}, 11, ui::copper);
     ui::text(g, "Scale", {742, 22, 36, 24}, 11, ui::muted);
     ui::text(g, "Out", {900, 22, 42, 24}, 11, ui::muted, juce::Justification::centredRight);
-    ui::text(g, "Dyn", {984, 78, 34, 24}, 11, ui::muted, juce::Justification::centredRight);
+    ui::text(g, "Dynamic threshold", {984, 70, 152, 14}, 11, ui::muted);
     const auto db = juce::Decibels::gainToDecibels(meter, -60.0f);
     g.setColour(ui::muted.withAlpha(0.2f)); g.fillRoundedRectangle(944, 56, 122, 5, 2.5f);
     g.setColour(db > 0 ? ui::warning : juce::Colour(0xff48f0c8)); g.fillRoundedRectangle(944, 56, juce::jlimit(0.0f, 122.0f, (db + 60) / 60 * 122), 5, 2.5f);
