@@ -3,6 +3,8 @@
 namespace {
 // Grey, so the analyzer does not look like a band.
 const juce::Colour analyzerColour {0xffa3a9ad};
+// How far a node, its glow or its placement mark reaches past the plot.
+constexpr float nodeReach = 26;
 }
 ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spectrum) {
     setName("Equalizer response graph");
@@ -73,7 +75,7 @@ void ResponseGraph::refresh() {
     }
     // Only analyzer changes move the legend and the scale labels.
     if (analyzerChanged) { repaint(); return; }
-    repaint(plot().getSmallestIntegerContainer());
+    repaint(plot().expanded(nodeReach).getSmallestIntegerContainer());
 }
 void ResponseGraph::animate() {
     const auto spectrumChanged = analyzerOn && analyzer.update(juce::Time::getMillisecondCounterHiRes() * 0.001, afterEQ);
@@ -95,7 +97,7 @@ void ResponseGraph::animate() {
     const auto bands = processor.readSettings().bands;
     const auto dynamicBand = std::any_of(bands.begin(), bands.end(), [](const ote::BandSettings& b) { return b.enabled && ote::usesDynamics(b); });
     if (!spectrumChanged && !historyScrolls && !dynamicBand) return;
-    repaint(plot().getSmallestIntegerContainer());
+    repaint(plot().expanded(nodeReach).getSmallestIntegerContainer());
     // The hover readout shows the level under the cursor.
     if (hoverX >= 0) repaint(0, 0, analyzerToggle.getX(), 40);
 }
