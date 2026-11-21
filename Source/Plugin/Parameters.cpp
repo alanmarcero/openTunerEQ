@@ -49,11 +49,11 @@ State::ParameterLayout layout() {
                                                            juce::AudioParameterFloatAttributes()
                                                                .withStringFromValueFunction([](float value, int) { return juce::String(value, 1) + " Hz"; })
                                                                .withValueFromStringFunction(parseHz)));
-    result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("analyzerEnabled", 2), "Live analyzer", true));
+    result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("analyzerEnabled", 2), "Analyzer", true));
     result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerStyle", 2), "Analyzer style", juce::StringArray {"Spectrum", "Bars", "Spectrogram"}, 0));
     result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerSource", 3), "Analyzer audio source", juce::StringArray {"Before EQ", "After EQ"}, 0));
-    result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("analyzerFreeze", 3), "Freeze spectrum", false));
-    result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerRelease", 3), "Analyzer release", juce::StringArray {"Slow 24 dB/s", "Medium 48 dB/s", "Fast 96 dB/s"}, 1));
+    result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("analyzerFreeze", 3), "Analyzer freeze", false));
+    result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerRelease", 3), "Analyzer release", analyzerReleases, 1));
     result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerTilt", 3), "Analyzer tilt", juce::StringArray {"0 dB/oct", "3 dB/oct", "4.5 dB/oct", "6 dB/oct"}, 2));
     result.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("scale", 4), "EQ gain scale", juce::NormalisableRange<float>(0.0f, 200.0f, 1.0f), 100.0f, percent));
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("autoGain", 4), "Auto-gain compensation", false));

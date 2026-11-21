@@ -127,12 +127,11 @@ int main() {
             "spectrum tilt subtracts dB below 1 kHz");
 
     auto prepareSignal = [](SpectrumCapture& source, SpectrumAnalyzer& view, juce::AudioBuffer<float>& signal,
-                            double& clock, float releaseDbPerSecond, bool freeze) {
+                            double& clock, float releaseDbPerSecond) {
         source.prepare(48000);
         source.setActive(true);
         signal.setSize(2, 256);
         view.setReleaseDbPerSecond(releaseDbPerSecond);
-        view.setFrozen(freeze);
         for (int block = 0; block < 80; ++block) {
             for (int i = 0; i < 256; ++i) {
                 const auto sample = static_cast<float>(0.5 * std::sin(2 * juce::MathConstants<double>::pi * 1000 * (block * 256 + i) / 48000));
@@ -152,16 +151,26 @@ int main() {
     SpectrumAnalyzer frozen(frozenCapture), slow(slowCapture), fast(fastCapture);
     juce::AudioBuffer<float> frozenSignal(2, 256), slowSignal(2, 256), fastSignal(2, 256);
     double frozenClock = 0, slowClock = 0, fastClock = 0;
-    prepareSignal(frozenCapture, frozen, frozenSignal, frozenClock, 48.0f, true);
-    prepareSignal(slowCapture, slow, slowSignal, slowClock, 24.0f, false);
-    prepareSignal(fastCapture, fast, fastSignal, fastClock, 96.0f, false);
+    prepareSignal(frozenCapture, frozen, frozenSignal, frozenClock, 48.0f);
+    prepareSignal(slowCapture, slow, slowSignal, slowClock, 24.0f);
+    prepareSignal(fastCapture, fast, fastSignal, fastClock, 96.0f);
+    frozen.setFrozen(true);
     const auto frozenPeak = frozen.levelAt(1000);
+    const auto frozenQuiet = frozen.levelAt(3000);
     require(frozenPeak > -8 && slow.levelAt(1000) > -8 && fast.levelAt(1000) > -8,
             "freeze and release modes begin from a live peak");
     feedSilence(frozenCapture, frozen, frozenSignal, frozenClock, 94);
     feedSilence(slowCapture, slow, slowSignal, slowClock, 94);
     feedSilence(fastCapture, fast, fastSignal, fastClock, 94);
     require(frozen.levelAt(1000) >= frozenPeak - 0.1f, "frozen spectrum holds its peak while new audio arrives");
+    for (int block = 0; block < 40; ++block) {
+        for (int i = 0; i < 256; ++i) {
+            const auto sample = static_cast<float>(0.5 * std::sin(2 * juce::MathConstants<double>::pi * 3000 * (block * 256 + i) / 48000));
+            frozenSignal.setSample(0, i, sample); frozenSignal.setSample(1, i, sample);
+        }
+        frozenCapture.push(frozenSignal, true); frozenClock += 256.0 / 48000; frozen.update(frozenClock);
+    }
+    require(frozen.levelAt(3000) == frozenQuiet, "frozen spectrum ignores new peaks");
     require(fast.levelAt(1000) < slow.levelAt(1000) - 20.0f, "faster analyzer release decays held peaks faster");
     std::cout << "PASS: spectrum calibration, sample rates, stereo, mono, silence, gating, overflow\n";
 }

@@ -22,9 +22,9 @@ Turn on **Snap to notes** to tune bands to semitones, including host automation.
 
 Drag a band on the graph to change frequency and gain, and hold Shift for fine moves. Scroll over a band to change its Q. Double-click a band to bypass it. Hover to read frequency and note. With the analyzer on, the graph also shows audio level. Alt/Option-click to move the selected band to that frequency; turn snapping off for exact placement.
 
-## Spectrum display
+## Analyzer
 
-Choose Spectrum, Bars, or Spectrogram. View audio before or after the EQ, freeze peaks, set Slow, Medium, or Fast falloff, and tilt the spectrum by 0, 3, 4.5, or 6 dB per octave. The editor saves these display settings with your session.
+Choose Spectrum, Bars, or Spectrogram. View audio before or after the EQ, freeze the display, set Slow, Medium, or Fast falloff, and tilt the spectrum by 0, 3, 4.5, or 6 dB per octave. The editor saves these display settings with your session.
 
 Output trim ranges from −24 to +12 dB. Global bypass includes output trim. The EQ supports mono and stereo and adds no latency.
 

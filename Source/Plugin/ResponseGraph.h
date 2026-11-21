@@ -20,7 +20,7 @@ public:
 private:
     TunerProcessor& processor;
     SpectrumAnalyzer analyzer;
-    juce::TextButton analyzerToggle {"Visualizer"};
+    juce::TextButton analyzerToggle {"Analyzer"};
     juce::TextButton freezeToggle {"Freeze"};
     juce::ComboBox analyzerStyle, analyzerSource, analyzerRelease, analyzerTilt;
     std::unique_ptr<params::State::ButtonAttachment> analyzerAttachment;

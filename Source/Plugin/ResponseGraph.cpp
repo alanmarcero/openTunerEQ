@@ -1,5 +1,9 @@
 #include "ResponseGraph.h"
 #include "Notes.h"
+namespace {
+// A neutral grey, so the analyzer does not look like a band.
+const juce::Colour analyzerColour {0xffa3a9ad};
+}
 ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spectrum) {
     setName("Equalizer response graph");
     analyzerToggle.setComponentID("analyzerEnabled");
@@ -12,8 +16,9 @@ ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spect
     freezeToggle.setComponentID("analyzerFreeze");
     freezeToggle.setClickingTogglesState(true);
     analyzerRelease.setComponentID("analyzerRelease");
-    analyzerRelease.addItemList({"Slow 24", "Medium 48", "Fast 96"}, 1);
+    analyzerRelease.addItemList(params::analyzerReleases, 1);
     analyzerTilt.setComponentID("analyzerTilt");
+    analyzerSource.setName("Source"); analyzerStyle.setName("Style"); analyzerTilt.setName("Tilt"); analyzerRelease.setName("Release");
     analyzerTilt.addItemList({"0 dB/oct", "3 dB/oct", "4.5 dB/oct", "6 dB/oct"}, 1);
     addAndMakeVisible(analyzerToggle); addAndMakeVisible(freezeToggle); addAndMakeVisible(analyzerRelease);
     addAndMakeVisible(analyzerTilt); addAndMakeVisible(analyzerStyle); addAndMakeVisible(analyzerSource);
@@ -27,12 +32,13 @@ ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spect
 }
 ResponseGraph::~ResponseGraph() { processor.spectrum.setActive(false); endGesture(); endWheel(); }
 void ResponseGraph::resized() {
-    freezeToggle.setBounds(getWidth() - 635, 0, 60, 40);
-    analyzerRelease.setBounds(getWidth() - 569, 0, 90, 40);
-    analyzerTilt.setBounds(getWidth() - 473, 0, 78, 40);
-    analyzerToggle.setBounds(getWidth() - 391, 0, 100, 40);
-    analyzerSource.setBounds(getWidth() - 283, 0, 128, 40);
-    analyzerStyle.setBounds(getWidth() - 147, 0, 140, 40);
+    auto row = getLocalBounds().removeFromTop(40).withTrimmedRight(8);
+    freezeToggle.setBounds(row.removeFromRight(64)); row.removeFromRight(6);
+    analyzerRelease.setBounds(row.removeFromRight(132)); row.removeFromRight(6);
+    analyzerTilt.setBounds(row.removeFromRight(96)); row.removeFromRight(6);
+    analyzerStyle.setBounds(row.removeFromRight(120)); row.removeFromRight(6);
+    analyzerSource.setBounds(row.removeFromRight(104)); row.removeFromRight(6);
+    analyzerToggle.setBounds(row.removeFromRight(92));
 }
 void ResponseGraph::refresh() {
     const auto enabled = processor.state.getRawParameterValue("analyzerEnabled")->load() > 0.5f;
@@ -51,7 +57,7 @@ void ResponseGraph::refresh() {
     const juce::String analyzerOff = enabled ? "" : "Turn on the analyzer to use it.";
     ui::showActive(analyzerStyle, "Spectrum: detailed peaks. Bars: frequency regions. Spectrogram: recent frequency history, newest at the top.", analyzerOff);
     ui::showActive(analyzerSource, "Before EQ: the incoming track. After EQ: the processed track, including output gain and bypass.", analyzerOff);
-    ui::showActive(freezeToggle, "Hold the highest measured spectrum level until Freeze is turned off.", analyzerOff);
+    ui::showActive(freezeToggle, "Hold the analyzer display until Freeze is turned off.", analyzerOff);
     ui::showActive(analyzerRelease, "Peak decay speed in dB per second.", analyzerOff);
     ui::showActive(analyzerTilt, "Tilt the spectrum around 1 kHz to make low-frequency balance easier to read.", analyzerOff);
     processor.spectrum.setActive(enabled);
@@ -61,16 +67,18 @@ void ResponseGraph::refresh() {
         for (int i = 0; i < 256 && processor.spectrum.pop(discarded); ++i) {}
         analyzer.reset();
     }
-    if (enabled && style == 2) {
+    if (enabled && style == 2 && !analyzerFrozen) {
         history.moveImageSection(0, 1, 0, 0, 512, 127);
         juce::Image::BitmapData pixels(history, juce::Image::BitmapData::writeOnly);
         for (int x = 0; x < 512; ++x) {
             const auto db = analyzer.levelInRange(20 * std::pow(1000.0, x / 512.0), 20 * std::pow(1000.0, (x + 1) / 512.0), tiltDbPerOctave);
             const auto strength = juce::jlimit(0.0f, 1.0f, (db + 90) / 90);
-            const auto colour = strength < 0.6f
-                ? juce::Colour(0xff0e151b).interpolatedWith(juce::Colour(0xff3e9caa), strength / 0.6f)
-                : juce::Colour(0xff3e9caa).interpolatedWith(ui::copper, (strength - 0.6f) / 0.4f);
-            pixels.setPixelColour(x, 0, colour);
+            static const auto heat = [] {
+                juce::ColourGradient gradient(juce::Colour(0xff0e151b), 0, 0, ui::ink, 1, 0, false);
+                gradient.addColour(0.6, analyzerColour);
+                return gradient;
+            }();
+            pixels.setPixelColour(x, 0, heat.getColourAtPosition(strength));
         }
     }
     repaint();
@@ -88,15 +96,17 @@ void ResponseGraph::paint(juce::Graphics& g) {
     auto area = getLocalBounds().toFloat(); auto p = plot();
     g.setColour(juce::Colour(0xff0e151b).withAlpha(0.97f)); g.fillRoundedRectangle(area, 9);
     g.setColour(ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(area.reduced(0.5f), 9, 1);
-    ui::text(g, "Live audio + EQ", {18, 8, 180, 20}, 13, ui::ink, juce::Justification::centredLeft, true);
-    juce::String caption = analyzerOn ? (style == 2 ? "Audio history (tilted): newest at top / White: EQ response" : "Cyan: tilted audio spectrum / White: EQ response") : "Drag a band, Shift for fine / Scroll a band for Q / Double-click to bypass";
+    ui::text(g, "EQ response", {18, 8, 100, 20}, 13, ui::ink, juce::Justification::centredLeft, true);
+    juce::String caption = "Drag a band, Shift for fine / Scroll a band for Q / Double-click to bypass";
+    if (analyzerOn) caption = "Grey: tilted audio spectrum / White: EQ response";
+    if (analyzerOn && style == 2) caption = "Grey: tilted audio history, newest at top / White: EQ response";
     if (hoverX >= 0) {
         const auto hz = frequencyAt(hoverX);
         caption = params::frequencyText(hz) + " / " + ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats());
         if (analyzerOn) caption += " / " + juce::String(analyzer.levelAt(hz, tiltDbPerOctave), 1) + (afterEQ ? " dB tilted after EQ" : " dB tilted before EQ");
         caption += " / Alt-click to tune";
     }
-    ui::text(g, caption, {206, 8, area.getWidth() - 620, 20}, 11, ui::muted);
+    ui::text(g, caption, {124, 8, analyzerToggle.getX() - 132.0f, 20}, 11, ui::muted);
     if (analyzerOn) paintSpectrum(g);
     for (int db = -24; db <= 24; db += 6) {
         const auto y = yFor(db); g.setColour(ui::muted.withAlpha(db == 0 ? 0.28f : 0.09f)); g.drawHorizontalLine(static_cast<int>(y), p.getX(), p.getRight());
@@ -205,7 +215,7 @@ void ResponseGraph::paint(juce::Graphics& g) {
 }
 void ResponseGraph::paintSpectrum(juce::Graphics& g) {
     const auto p = plot();
-    const auto colour = juce::Colour(0xff48f0c8);
+    const auto colour = analyzerColour;
     auto y = [&](float db) { return p.getBottom() - juce::jlimit(0.0f, 1.0f, (db + 90) / 90) * p.getHeight(); };
     if (style == 2) {
         g.setOpacity(0.6f); g.drawImage(history, p); g.setOpacity(1.0f);

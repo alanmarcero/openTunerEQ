@@ -78,7 +78,8 @@ bool SpectrumAnalyzer::update(double now, bool useAfterEQ) {
     }
     lastInput = now;
     const auto size = fft->getSize();
-    if (collected < size) return false;
+    // Freeze holds the display, so new peaks do not rise through it.
+    if (collected < size || frozen) return false;
     for (int i = 0; i < size; ++i) {
         const auto index = static_cast<size_t>((position + i) % size);
         transformLeft[static_cast<size_t>(i)] = left[index] * window[static_cast<size_t>(i)];
@@ -89,7 +90,7 @@ bool SpectrumAnalyzer::update(double now, bool useAfterEQ) {
     for (size_t i = 0; i < levels.size(); ++i) {
         const auto amplitude = std::max(transformLeft[i], transformRight[i]) * normalization;
         const auto db = juce::Decibels::gainToDecibels(amplitude, floorDb);
-        levels[i] = std::max(db, frozen ? levels[i] : levels[i] - static_cast<float>(elapsed * releaseDbPerSecond));
+        levels[i] = std::max(db, levels[i] - static_cast<float>(elapsed * releaseDbPerSecond));
     }
     return true;
 }

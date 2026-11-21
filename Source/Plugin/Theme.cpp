@@ -155,6 +155,12 @@ void Theme::drawComboBox(juce::Graphics& g, int w, int h, bool, int, int, int, i
     juce::Path arrow; const float xx = w - 15.0f, yy = h / 2.0f;
     arrow.startNewSubPath(xx - 3, yy - 2); arrow.lineTo(xx, yy + 1); arrow.lineTo(xx + 3, yy - 2);
     g.setColour(muted.withAlpha(box.isEnabled() ? 1.0f : 0.2f)); g.strokePath(arrow, juce::PathStrokeType(1.2f));
+    if (box.getName().isNotEmpty()) text(g, box.getName(), {6, 3, w - 12.0f, 12}, 10, muted);
+}
+// A named box shows its name as a caption on the top line, so the value moves down.
+void Theme::positionComboBoxText(juce::ComboBox& box, juce::Label& label) {
+    juce::LookAndFeel_V4::positionComboBoxText(box, label);
+    if (box.getName().isNotEmpty()) label.setBounds(label.getBounds().withTrimmedTop(12));
 }
 juce::Font Theme::getComboBoxFont(juce::ComboBox& box) { return font(box.getComponentID().endsWith(".note") ? 32.0f : 14.0f, box.getComponentID().endsWith(".note")); }
 }

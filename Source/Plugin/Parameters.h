@@ -12,6 +12,7 @@ inline const juce::StringArray placements {"Stereo", "Left", "Right", "Mid", "Si
 inline const juce::StringArray slopes {"12 dB/oct / Soft", "24 dB/oct", "48 dB/oct", "96 dB/oct / Hard"};
 inline constexpr std::array<int, 4> slopeValues {12, 24, 48, 96};
 inline const juce::StringArray qModes {"Symmetric Q", "Constant Q", "Proportional Q"};
+inline const juce::StringArray analyzerReleases {"Slow 24 dB/s", "Medium 48 dB/s", "Fast 96 dB/s"};
 // A 0.1 dB step stores 0 dB as about 4e-7, so gains below this count as zero.
 inline constexpr double zeroDb = 1.0e-3;
 }

@@ -355,6 +355,10 @@ int main(int argc, char** argv) {
     require(visualizerSource != nullptr && visualizerSource->getSelectedId() == 1, "before-EQ audio source shown in the editor");
     require(freezeToggle != nullptr && visualizerRelease != nullptr && visualizerTilt != nullptr,
             "freeze, release speed, and tilt controls appear in the native editor");
+    require(visualizer->getX() < visualizerSource->getX() && visualizerSource->getX() < visualizerStyle->getX()
+            && visualizerStyle->getX() < visualizerTilt->getX() && visualizerTilt->getX() < freezeToggle->getX(), "the analyzer switch comes first");
+    require(visualizer->getButtonText() == "Analyzer" && visualizerRelease->getItemText(1) == "Medium 48 dB/s" && visualizerTilt->getName() == "Tilt",
+            "the analyzer has one name, its release keeps its unit and its boxes have captions");
     freezeToggle->setToggleState(true, juce::sendNotificationSync);
     visualizerRelease->setSelectedId(3, juce::sendNotificationSync);
     visualizerTilt->setSelectedId(4, juce::sendNotificationSync);
