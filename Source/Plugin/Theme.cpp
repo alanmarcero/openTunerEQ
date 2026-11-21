@@ -9,12 +9,14 @@ void showActive(juce::Component& control, const juce::String& tooltip, const juc
     const auto tip = hint.isEmpty() ? tooltip : tooltip + " " + hint;
     control.setAlpha(hint.isEmpty() ? 1.0f : inactiveAlpha);
     if (auto* client = dynamic_cast<juce::SettableTooltipClient*>(&control)) client->setTooltip(tip);
-    // A slider copies its tooltip into its text box only when it creates the box.
+    // A slider copies its tooltip to its text box only at creation.
     for (auto* child : control.getChildren())
         if (auto* client = dynamic_cast<juce::SettableTooltipClient*>(child)) client->setTooltip(tip);
 }
-LevelMeter::LevelMeter(std::atomic<float>& peak, juce::Colour meterColour) : source(peak), colour(meterColour) {
-    timerCallback();
+LevelMeter::LevelMeter(std::atomic<float>& peak, juce::Colour meterColour) : source(peak), colour(meterColour) { timerCallback(); }
+// A hidden meter does not read levels.
+void LevelMeter::visibilityChanged() {
+    if (!isVisible()) { stopTimer(); return; }
     startTimerHz(24);
 }
 void LevelMeter::setMarker(float decibels) {
@@ -37,23 +39,20 @@ void LevelMeter::mouseDown(const juce::MouseEvent&) {
     repaint();
 }
 void LevelMeter::paint(juce::Graphics& g) {
-    auto area = getLocalBounds().toFloat();
-    const bool across = area.getWidth() > area.getHeight();
-    const auto clipLight = across ? area.removeFromRight(3) : area.removeFromTop(3);
-    auto upTo = [&](float decibels) {
-        const auto fraction = juce::jlimit(0.0f, 1.0f, (decibels + 60) / 60);
-        return across ? area.withWidth(area.getWidth() * fraction) : area.withTrimmedTop(area.getHeight() * (1 - fraction));
-    };
-    auto tick = [&](float decibels) {
-        const auto bar = upTo(decibels);
-        g.fillRect(across ? bar.withLeft(bar.getRight() - 1.5f) : bar.withHeight(1.5f));
-    };
-    g.setColour(muted.withAlpha(0.2f)); g.fillRect(area);
-    g.setColour(colour); g.fillRect(upTo(juce::Decibels::gainToDecibels(level, -60.0f)));
-    if (held > 0) tick(juce::Decibels::gainToDecibels(held, -60.0f));
+    // A wide meter rotates a quarter turn, so up becomes right.
+    auto length = static_cast<float>(getHeight()), breadth = static_cast<float>(getWidth());
+    if (getWidth() > getHeight()) {
+        std::swap(length, breadth);
+        g.addTransform(juce::AffineTransform::rotation(juce::MathConstants<float>::halfPi).translated(static_cast<float>(getWidth()), 0));
+    }
+    // -60 dBFS is the bottom. The top 3 px hold the clip light.
+    auto top = [length](float gain) { return 3 + (length - 3) * (1 - juce::jlimit(0.0f, 1.0f, juce::Decibels::gainToDecibels(gain, -60.0f) / 60 + 1)); };
+    g.setColour(muted.withAlpha(0.2f)); g.fillRect(0.0f, 3.0f, breadth, length - 3);
+    g.setColour(colour); g.fillRect(0.0f, top(level), breadth, length - top(level));
+    if (held > 0) g.fillRect(0.0f, top(held), breadth, 1.5f);
     g.setColour(ink.withAlpha(0.8f));
-    if (marker) tick(*marker);
-    g.setColour(clipped ? warning : muted.withAlpha(0.2f)); g.fillRect(clipLight);
+    if (marker) g.fillRect(0.0f, top(juce::Decibels::decibelsToGain(*marker)), breadth, 1.5f);
+    g.setColour(clipped ? warning : muted.withAlpha(0.2f)); g.fillRect(0.0f, 0.0f, breadth, 3.0f);
 }
 Theme::Theme() {
     setColour(juce::Slider::textBoxTextColourId, ink);
@@ -83,7 +82,7 @@ juce::Label* Theme::createSliderTextBox(juce::Slider& slider) {
     label->setColour(juce::Label::outlineColourId, juce::Colours::transparentBlack);
     label->setColour(juce::Label::textColourId, ink);
     label->setFont(font(13));
-    // A bar draws its caption on the top line, so the value sits below it.
+    // The value sits below the bar's caption.
     if (slider.getSliderStyle() == juce::Slider::LinearBar) label->setBorderSize({14, 2, 2, 2});
     return label;
 }
@@ -117,8 +116,9 @@ void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, floa
         juce::Path outline; outline.addRoundedRectangle(area, 4);
         g.setColour(juce::Colour(0xff131a20)); g.fillPath(outline);
         {
-            // A range across zero fills from zero, so 0 dB draws an empty bar.
-            const auto zero = slider.getMinimum() < 0 ? static_cast<float>(slider.getPositionOfValue(0)) : area.getX();
+            // A range across zero fills from zero, so 0 dB draws empty.
+            auto zero = area.getX();
+            if (slider.getMinimum() < 0) zero = static_cast<float>(slider.getPositionOfValue(0));
             juce::Graphics::ScopedSaveState state(g);
             g.reduceClipRegion(outline);
             g.setColour(slider.findColour(juce::Slider::trackColourId).withMultipliedAlpha(slider.isEnabled() ? 1.0f : 0.25f));
@@ -138,8 +138,8 @@ void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, floa
 void Theme::drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour&, bool over, bool down) {
     auto area = button.getLocalBounds().toFloat().reduced(0.5f);
     const auto on = button.getToggleState();
-    const auto fill = on ? button.findColour(juce::TextButton::buttonOnColourId) : juce::Colour(over || down ? 0xff35404b : 0xff242d35);
-    g.setColour(fill.withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f));
+    g.setColour(on ? button.findColour(juce::TextButton::buttonOnColourId) : juce::Colour(over || down ? 0xff35404b : 0xff242d35));
+    if (!button.isEnabled()) g.setOpacity(0.5f);
     g.fillRoundedRectangle(area, 5);
     const bool focus = button.hasKeyboardFocus(false);
     g.setColour(focus ? ink : muted.withAlpha(0.35f));
@@ -160,7 +160,7 @@ void Theme::drawComboBox(juce::Graphics& g, int w, int h, bool, int, int, int, i
     g.setColour(muted.withAlpha(box.isEnabled() ? 1.0f : 0.2f)); g.strokePath(arrow, juce::PathStrokeType(1.2f));
     if (box.getName().isNotEmpty()) text(g, box.getName(), {6, 3, w - 12.0f, 12}, 10, muted);
 }
-// A named box shows its name as a caption on the top line, so the value moves down.
+// A named box shows its name as a caption above the value.
 void Theme::positionComboBoxText(juce::ComboBox& box, juce::Label& label) {
     juce::LookAndFeel_V4::positionComboBoxText(box, label);
     if (box.getName().isNotEmpty()) label.setBounds(label.getBounds().withTrimmedTop(12));

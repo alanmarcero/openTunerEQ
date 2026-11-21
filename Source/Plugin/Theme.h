@@ -7,16 +7,17 @@ inline const std::array<juce::Colour, 5> bandColours {
 juce::Font font(float size, bool bold = false);
 void text(juce::Graphics&, const juce::String&, juce::Rectangle<float>, float size, juce::Colour = ink, juce::Justification = juce::Justification::centredLeft, bool bold = false);
 inline constexpr float inactiveAlpha = 0.4f;
-// An empty hint marks the control active. Otherwise the control dims and its tooltip adds the hint.
+// An empty hint means active. Otherwise the control dims and the tooltip adds the hint.
 void showActive(juce::Component& control, const juce::String& tooltip, const juce::String& hint);
-// A dBFS meter from -60 to 0 with a 1 s peak hold and a clip light that a click clears.
-// The audio thread keeps the peak since the last read in `source`, and the meter reads it with exchange.
+// A dBFS meter with a 1 s peak hold. A click clears the clip light.
+// The audio thread keeps the peak in `source` until the meter reads it with exchange.
 class LevelMeter final : public juce::Component, public juce::SettableTooltipClient, private juce::Timer {
 public:
     LevelMeter(std::atomic<float>& source, juce::Colour colour);
     void setMarker(float decibels);
     void paint(juce::Graphics&) override;
     void mouseDown(const juce::MouseEvent&) override;
+    void visibilityChanged() override;
     void timerCallback() override;
 private:
     std::atomic<float>& source;

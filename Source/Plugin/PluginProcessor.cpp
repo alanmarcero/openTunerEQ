@@ -16,8 +16,7 @@ TunerProcessor::TunerProcessor(juce::File presetFolder)
       state(*this, nullptr, "openTunerEQ", params::layout()),
       undoHistory(*this, [this](juce::MemoryBlock& block) { writeParameters(block); },
                   [this](const juce::MemoryBlock& block) { readParameters(block); }),
-      abCompare([this](juce::MemoryBlock& block) { writeParameters(block); },
-                [this](const juce::MemoryBlock& block) { readParameters(block); }, undoHistory),
+      abCompare(undoHistory),
       presetStore("openTunerEQ", factoryNames(), std::move(presetFolder)) {
     for (int i = 0; i < 5; ++i) {
         auto get = [&](const char* key) { return state.getRawParameterValue(params::bandId(i, key)); };
@@ -89,7 +88,7 @@ void TunerProcessor::process(juce::AudioBuffer<float>& buffer, bool forceBypass)
     engine.setSettings(settings);
     engine.process(buffer.getArrayOfWritePointers(), std::min(2, buffer.getNumChannels()), buffer.getNumSamples());
     if (afterEQ) spectrum.push(buffer, visualize, true);
-    // The editor reads each level with exchange(0), so keep the highest value until then.
+    // The editor reads with exchange(0). Keep the highest value until that read.
     auto raise = [](std::atomic<float>& meter, float value) {
         auto current = meter.load();
         while (value > current && !meter.compare_exchange_weak(current, value)) {}
@@ -122,7 +121,7 @@ void TunerProcessor::injectDefaults(juce::ValueTree& tree) const {
     for (int i = 0; i < 5; ++i)
         for (const char* key : {"placement", "dyn", "drive"}) add(params::bandId(i, key), 0.0f);
 }
-// A slot's state: the parameters plus the loaded preset, so A/B and undo restore its name.
+// A slot stores the preset name, so A/B and undo restore it.
 void TunerProcessor::writeParameters(juce::MemoryBlock& dest) {
     dest.reset();
     auto xml = state.copyState().createXml();

@@ -45,7 +45,7 @@ BandPanel::BandPanel(TunerProcessor& p, int band)
     hz.setFont(ui::font(17, true)); hz.setColour(juce::Label::textColourId, ui::ink); hz.setJustificationType(juce::Justification::centred);
     cents.setFont(ui::font(11)); cents.setColour(juce::Label::textColourId, ui::muted); cents.setJustificationType(juce::Justification::centred);
     for (juce::Component* c : std::initializer_list<juce::Component*>{&enabled, &placement, &note, &octave, &down, &up, &frequency, &gain, &q, &shape, &slope, &dynamic, &drive, &hz, &cents, &level}) addAndMakeVisible(c);
-    level.setTooltip("Level at this band's note. The white line marks the dynamic threshold. Click to clear the clip light.");
+    level.setTooltip("Level at this band's note, which drives the dynamic EQ. The white line marks the dynamic threshold. Click to clear the clip light.");
     enabledAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, id("enabled"), enabled);
     shapeAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, id("shape"), shape);
     slopeAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, id("slope"), slope);
@@ -126,8 +126,11 @@ void BandPanel::refresh() {
     ui::showActive(drive, "Analog-style saturation of this band's boost or cut.", hint(std::abs(b.gainDb) > params::zeroDb || std::abs(b.dynamicDb) > params::zeroDb, "Set a gain or dynamic range to use it."));
     for (auto* label : {&hz, &cents}) label->setAlpha(b.enabled ? 1.0f : ui::inactiveAlpha);
     slope.setVisible(!ote::usesGain(b.shape)); dynamic.setVisible(ote::usesGain(b.shape)); drive.setVisible(ote::usesGain(b.shape));
-    level.setVisible(ote::usesGain(b.shape)); level.setMarker(static_cast<float>(settings.dynamicThresholdDb));
+    level.setVisible(params::usesDynamics(b)); level.setMarker(static_cast<float>(settings.dynamicThresholdDb));
     updating = false;
+    // The panel paints only the on state and the selection.
+    if (b.enabled == bandEnabled) return;
+    bandEnabled = b.enabled;
     repaint();
 }
 void BandPanel::setSelected(bool value) { selected = value; repaint(); }
@@ -136,9 +139,9 @@ void BandPanel::paint(juce::Graphics& g) {
     auto area = getLocalBounds().toFloat().reduced(1);
     g.setColour(ui::panel.withAlpha(0.97f)); g.fillRoundedRectangle(area, 9);
     g.setColour(selected ? colour.withAlpha(0.8f) : ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(area, 9, selected ? 1.5f : 1.0f);
-    g.setColour(colour.withAlpha(enabled.getToggleState() ? 1.0f : 0.25f)); g.fillRoundedRectangle(15, 18, 6, 6, 3);
+    g.setColour(colour.withAlpha(bandEnabled ? 1.0f : 0.25f)); g.fillRoundedRectangle(15, 18, 6, 6, 3);
     ui::text(g, "Band " + juce::String(index + 1), {28, 10, 95, 22}, 13, ui::ink, juce::Justification::centredLeft, true);
-    const auto caption = ui::muted.withMultipliedAlpha(enabled.getToggleState() ? 1.0f : ui::inactiveAlpha);
+    const auto caption = ui::muted.withMultipliedAlpha(bandEnabled ? 1.0f : ui::inactiveAlpha);
     ui::text(g, "Place", {16, 32, 70, 14}, 12, caption);
     ui::text(g, "Note", {16, 90, 100, 16}, 12, caption);
     ui::text(g, "Octave", {153, 90, 50, 16}, 12, caption);

@@ -35,6 +35,7 @@ class SpectrumAnalyzer {
 public:
     static constexpr float floorDb = -90.0f;
     explicit SpectrumAnalyzer(SpectrumCapture& source) : capture(source) {}
+    // Returns true when the display changed.
     bool update(double nowSeconds, bool afterEQ = false);
     void reset();
     void setFrozen(bool value) noexcept { frozen = value; }

@@ -7,9 +7,9 @@ public:
     ~ResponseGraph() override;
     void paint(juce::Graphics&) override;
     void resized() override;
-    // Parameters changed: re-read the analyzer settings and control states.
+    // Call after a parameter change.
     void refresh();
-    // A timer tick: advance the analyzer, and repaint while the analyzer or a dynamic band moves.
+    // Call each timer tick.
     void animate();
     void mouseMove(const juce::MouseEvent&) override;
     void mouseExit(const juce::MouseEvent&) override;
@@ -67,6 +67,5 @@ private:
     static constexpr int keyCount = 48;
     TunerProcessor& processor;
     int selected = 0, first = -1;
-    void followSelectedNote();
     juce::Rectangle<float> keyBounds(int offset) const;
 };

@@ -4,7 +4,6 @@
 #include "PresetStore.h"
 class TunerProcessor;
 namespace suite {
-// The preset browser that the Presets button opens.
 std::unique_ptr<juce::Component> createPresetBrowser(TunerProcessor&, juce::LookAndFeel&);
 class SuiteBar final : public juce::Component {
 public:
@@ -21,6 +20,5 @@ private:
     juce::TextButton copyAtoB {"A to B"}, copyBtoA {"B to A"}, presetButton {"Presets"}, previousButton {"<"}, nextButton {">"};
     juce::Component::SafePointer<juce::CallOutBox> callout;
     void openBrowser();
-    void step(int direction);
 };
 }

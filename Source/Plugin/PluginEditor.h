@@ -2,7 +2,7 @@
 #include "BandPanel.h"
 #include "ResponseGraph.h"
 #include "SuiteBar.h"
-// The static background. JUCE caches it as an image, so a child's repaint does not redraw it.
+// JUCE caches this background as an image, so a child's repaint does not redraw it.
 class Faceplate final : public juce::Component {
 public:
     Faceplate();
@@ -10,7 +10,6 @@ public:
 private:
     juce::Image image;
 };
-// The tuning fork in the header pulses on the host's quarter notes.
 class TuningFork final : public juce::Component {
 public:
     explicit TuningFork(TunerProcessor&);
@@ -49,9 +48,10 @@ private:
     int selected = 0;
     float forkPhase = -1;
     double shownRate = 0;
-    std::atomic<bool> parametersChanged {false};
+    // The parts each parameter refreshes. Bits 0 to 4 are the band panels.
+    std::vector<int> refreshMasks;
+    std::atomic<int> pendingRefresh {0};
     void select(int band);
-    void refresh();
     void timerCallback() override;
     void parameterValueChanged(int, float) override;
     void parameterGestureChanged(int, bool) override {}

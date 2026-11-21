@@ -53,6 +53,7 @@ juce::Array<PresetStore::Item> PresetStore::filtered(const juce::String& query) 
     favoritesFirst.addArray(rest);
     return favoritesFirst;
 }
+bool PresetStore::exists(const juce::String& name) const { return root.getChildFile(cleanName(name) + ".xml").existsAsFile(); }
 bool PresetStore::save(const juce::String& requested, const juce::XmlElement& state) {
     const auto name = cleanName(requested);
     if (name.isEmpty() || factory.contains(name)) return false;

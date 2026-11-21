@@ -21,7 +21,7 @@ public:
 private:
     TunerProcessor& processor;
     int index;
-    bool selected = false, updating = false;
+    bool selected = false, updating = false, bandEnabled = true;
     juce::Colour colour;
     juce::TextButton enabled {"On"}, down {"-"}, up {"+"};
     juce::ComboBox note, octave, shape, slope, placement;

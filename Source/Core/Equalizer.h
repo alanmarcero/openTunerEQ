@@ -17,16 +17,15 @@ struct Settings {
     bool operator==(const Settings&) const = default;
 };
 double estimateTailSeconds(const Settings&, double sampleRate) noexcept;
-// The band as the engine plays it: Solo plays the soloed band as a band pass and mutes the others.
+// Solo plays the soloed band as a band pass and mutes the others.
 BandSettings audibleBand(const Settings&, size_t index) noexcept;
 class Equalizer {
 public:
     void prepare(double sampleRate) noexcept;
     void setSettings(const Settings& settings, bool immediately = false) noexcept;
     void process(float* const* channels, int channelCount, int samples) noexcept;
-    // The gain the dynamic EQ adds to a band now, in dB.
     double dynamicGainDb(size_t band) const noexcept;
-    // The amplitude the band's detector hears, or zero while the detector is off.
+    // Zero while the band's detector is off.
     double detectorLevel(size_t band) const noexcept;
 private:
     struct Bank {

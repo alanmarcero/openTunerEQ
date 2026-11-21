@@ -72,13 +72,14 @@ bool SpectrumAnalyzer::update(double now, bool useAfterEQ) {
     }
     const auto elapsed = juce::jlimit(0.0, 0.25, now - lastUpdate);
     lastUpdate = now;
+    // Silence clears the display once. The clear counts as a change.
     if (!received) {
-        if (!frozen && now - lastInput > 0.25) reset();
-        return false;
+        if (frozen || now - lastInput <= 0.25 || collected == 0) return false;
+        reset();
+        return true;
     }
     lastInput = now;
     const auto size = fft->getSize();
-    // Freeze holds the display, so new peaks do not rise through it.
     if (collected < size || frozen) return false;
     for (int i = 0; i < size; ++i) {
         const auto index = static_cast<size_t>((position + i) % size);

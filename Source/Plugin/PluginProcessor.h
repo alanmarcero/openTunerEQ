@@ -7,7 +7,7 @@
 #include "PresetStore.h"
 class TunerProcessor final : public juce::AudioProcessor {
 public:
-    // Tests pass a folder for user presets; the plugin uses Documents.
+    // Tests pass a temporary preset folder.
     explicit TunerProcessor(juce::File presetFolder = {});
     void prepareToPlay(double, int) override;
     void releaseResources() override {}
@@ -38,7 +38,7 @@ public:
     suite::ABCompare& compare() noexcept { return abCompare; }
     suite::PresetStore& presets() noexcept { return presetStore; }
     juce::String presetTitle() const { return presetName; }
-    // True after the first edit since the preset loaded or saved.
+    // True after an edit since the last load or save.
     bool presetEdited() const noexcept { return edited; }
     std::unique_ptr<juce::XmlElement> parameterXml();
     void loadPresetXml(const juce::XmlElement&, const juce::String& name);
@@ -48,7 +48,7 @@ public:
     SpectrumCapture spectrum;
     float artworkPhase() const noexcept { return artworkClock.currentPhase(); }
     std::atomic<float> peak {0};
-    // Per band: the live dynamic gain in dB, and the detector peak since the editor last read it.
+    // For each band: the live dynamic gain in dB, and the detector peak since the last read.
     std::array<std::atomic<float>, 5> dynamicGains {}, bandLevels {};
     std::atomic<int> activeSelectedBand {0};
     std::atomic<int> editorWidth {1160};

@@ -17,7 +17,7 @@ State::ParameterLayout layout() {
     const auto percent = juce::AudioParameterFloatAttributes().withStringFromValueFunction([](float value, int) {
         return juce::String(juce::roundToInt(value)) + "%";
     });
-    // Hz controls accept "k" and "kHz" as thousands.
+    // "6.8k" and "6.8 kHz" mean 6800 Hz.
     const auto parseHz = [](const juce::String& text) { return text.getFloatValue() * (text.containsIgnoreCase("k") ? 1000.0f : 1.0f); };
     const std::array<int, 5> initialNotes {36, 48, 69, 89, 108};
     for (int i = 0; i < 5; ++i) {
@@ -43,7 +43,7 @@ State::ParameterLayout layout() {
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("flats", 1), "Flat note spelling", false));
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("bypass", 1), "Bypass", false));
     result.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("output", 1), "Output gain", juce::NormalisableRange<float>(-24, 12, 0.1f), 0, decibels));
-    // One decimal shows the 0.1 Hz step of the tuning reference.
+    // One decimal shows the 0.1 Hz step.
     result.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("a4", 1), "A4 reference", juce::NormalisableRange<float>(400, 480, 0.1f),
                                                            static_cast<float>(ote::standardPitch),
                                                            juce::AudioParameterFloatAttributes()

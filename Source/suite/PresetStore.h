@@ -16,6 +16,7 @@ public:
     const juce::Array<Item>& all() const { return items; }
     juce::Array<Item> filtered(const juce::String& query) const;
     static juce::String cleanName(juce::String);
+    bool exists(const juce::String& name) const;
     bool save(const juce::String& name, const juce::XmlElement&);
     bool rename(const Item&, const juce::String& name);
     bool remove(const Item&);

@@ -76,15 +76,18 @@ void checkParameterText() {
 }
 void checkTitles(const juce::Component& parent) {
     for (const auto* child : parent.getChildren()) {
-        const bool control = dynamic_cast<const juce::Button*>(child) != nullptr || dynamic_cast<const juce::Slider*>(child) != nullptr
-                          || dynamic_cast<const juce::ComboBox*>(child) != nullptr;
-        if (control && child->getTitle().isEmpty()) std::cerr << "untitled control " << child->getComponentID() << '\n';
-        require(!control || child->getTitle().isNotEmpty(), "every slider, combo box and button has a screen reader title");
+        const auto* button = dynamic_cast<const juce::Button*>(child);
+        const bool control = button != nullptr || dynamic_cast<const juce::Slider*>(child) != nullptr || dynamic_cast<const juce::ComboBox*>(child) != nullptr;
+        // JUCE speaks a button's text when the button has no title.
+        auto spoken = child->getTitle();
+        if (spoken.isEmpty() && button != nullptr) spoken = button->getButtonText();
+        if (control && spoken.isEmpty()) std::cerr << "untitled control " << child->getComponentID() << '\n';
+        require(!control || spoken.isNotEmpty(), "every slider, combo box and button has a screen reader title");
         if (!control) checkTitles(*child);
     }
 }
 void checkButtonLayout(juce::Component& parent, int minimum) {
-    // Labels and the resize corner may sit over other parts; every other clickable part needs its own space.
+    // Labels and the resize corner may overlap other parts.
     auto takesSpace = [](const juce::Component& c) {
         bool clicksSelf = false, clicksChildren = false;
         c.getInterceptsMouseClicks(clicksSelf, clicksChildren);
@@ -283,12 +286,6 @@ int main(int argc, char** argv) {
     require(editor != nullptr && editor->getWidth() >= 1000, "editor creation");
     checkButtonLayout(*editor, 40);
     checkTitles(*editor);
-    std::function<Faceplate*(juce::Component&)> faceplateIn = [&](juce::Component& root) -> Faceplate* {
-        if (auto* match = dynamic_cast<Faceplate*>(&root)) return match;
-        for (auto* child : root.getChildren()) if (auto* match = faceplateIn(*child)) return match;
-        return nullptr;
-    };
-    require(faceplateIn(*editor) != nullptr && faceplateIn(*editor)->getCachedComponentImage() != nullptr, "the editor caches its background");
     struct ArtworkHost : juce::AudioPlayHead {
         PositionInfo position;
         juce::Optional<PositionInfo> getPosition() const override { return position; }
@@ -329,6 +326,7 @@ int main(int argc, char** argv) {
     auto* freq = dynamic_cast<juce::Slider*>(find(find, *editor, "band0.freq"));
     require(freq != nullptr, "frequency UI attached");
     require(find(find, *editor, "copyAtoB")->getTitle() == "Copy A to B", "an abbreviated button has a spoken title");
+    require(find(find, *editor, "faceplate")->getCachedComponentImage() != nullptr, "the editor caches its background");
     auto* tuning = dynamic_cast<juce::Slider*>(find(find, *editor, "a4"));
     require(tuning != nullptr && tuning->isDoubleClickReturnEnabled() && std::abs(tuning->getDoubleClickReturnValue() - 440) < 0.01,
             "A4 reference double-clicks back to 440 Hz");
@@ -349,7 +347,7 @@ int main(int argc, char** argv) {
     auto* piano = dynamic_cast<PianoStrip*>(findType(findType, *editor, true));
     require(piano != nullptr, "piano present");
     processor.setParameter("band0.freq", 16744.036f);
-    // C10 needs the top octaves, so the keyboard shows C7 to B10 and C10 is the 22nd white key.
+    // The keyboard shows C7 to B10, so C10 is the 22nd white key.
     piano->mouseDown(mouseAt(*piano, {piano->getWidth() * 21.5f / 28, piano->getHeight() - 8.0f}));
     require(ote::nearestNote(processor.bandFrequency(0), processor.referencePitch()) == 132, "piano follows octave 10");
     processor.setParameter("band0.freq", 65.4064f);
@@ -463,9 +461,9 @@ int main(int argc, char** argv) {
         checkTitles(*browser);
         auto* remove = dynamic_cast<juce::TextButton*>(find(find, *browser, "presetDelete"));
         remove->onClick();
-        require(remove->getButtonText() == "Delete?" && folder.getChildFile("Doomed.xml").existsAsFile(), "the first Delete click only asks");
+        require(remove->getButtonText() == "Delete?" && confirming.presets().exists("Doomed"), "the first Delete click only asks");
         remove->onClick();
-        require(remove->getButtonText() == "Delete" && !folder.getChildFile("Doomed.xml").existsAsFile(), "a second Delete click deletes");
+        require(remove->getButtonText() == "Delete" && !confirming.presets().exists("Doomed"), "a second Delete click deletes");
         browser.reset();
         folder.deleteRecursively();
     }

@@ -1,7 +1,7 @@
 #include "ResponseGraph.h"
 #include "Notes.h"
 namespace {
-// A neutral grey, so the analyzer does not look like a band.
+// Grey, so the analyzer does not look like a band.
 const juce::Colour analyzerColour {0xffa3a9ad};
 }
 ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spectrum) {
@@ -19,7 +19,7 @@ ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spect
     analyzerRelease.addItemList(params::analyzerReleases, 1);
     analyzerTilt.setComponentID("analyzerTilt");
     analyzerSource.setName("Source"); analyzerStyle.setName("Style"); analyzerTilt.setName("Tilt"); analyzerRelease.setName("Release");
-    analyzerToggle.setTitle("Analyzer"); freezeToggle.setTitle("Freeze"); analyzerSource.setTitle("Analyzer source");
+    analyzerSource.setTitle("Analyzer source");
     analyzerStyle.setTitle("Analyzer style"); analyzerTilt.setTitle("Analyzer tilt"); analyzerRelease.setTitle("Analyzer release");
     analyzerTilt.addItemList({"0 dB/oct", "3 dB/oct", "4.5 dB/oct", "6 dB/oct"}, 1);
     addAndMakeVisible(analyzerToggle); addAndMakeVisible(freezeToggle); addAndMakeVisible(analyzerRelease);
@@ -53,7 +53,8 @@ void ResponseGraph::refresh() {
     constexpr std::array<float, 3> releaseRates {24.0f, 48.0f, 96.0f};
     constexpr std::array<float, 4> tiltAmounts {0.0f, 3.0f, 4.5f, 6.0f};
     tiltDbPerOctave = tiltAmounts[static_cast<size_t>(tiltIndex)];
-    if (enabled != analyzerOn || nextStyle != style || nextAfterEQ != afterEQ) history.clear(history.getBounds());
+    const auto analyzerChanged = enabled != analyzerOn || nextStyle != style || nextAfterEQ != afterEQ;
+    if (analyzerChanged) history.clear(history.getBounds());
     analyzerOn = enabled; style = nextStyle; afterEQ = nextAfterEQ;
     analyzer.setFrozen(analyzerFrozen);
     analyzer.setReleaseDbPerSecond(releaseRates[static_cast<size_t>(releaseIndex)]);
@@ -69,11 +70,14 @@ void ResponseGraph::refresh() {
         for (int i = 0; i < 256 && processor.spectrum.pop(discarded); ++i) {}
         analyzer.reset();
     }
-    repaint();
+    // Only analyzer changes move the legend and the scale labels.
+    if (analyzerChanged) { repaint(); return; }
+    repaint(plot().getSmallestIntegerContainer());
 }
 void ResponseGraph::animate() {
-    if (analyzerOn) analyzer.update(juce::Time::getMillisecondCounterHiRes() * 0.001, afterEQ);
-    if (analyzerOn && style == 2 && !analyzerFrozen) {
+    const auto spectrumChanged = analyzerOn && analyzer.update(juce::Time::getMillisecondCounterHiRes() * 0.001, afterEQ);
+    const auto historyScrolls = analyzerOn && style == 2 && !analyzerFrozen;
+    if (historyScrolls) {
         history.moveImageSection(0, 1, 0, 0, 512, 127);
         juce::Image::BitmapData pixels(history, juce::Image::BitmapData::writeOnly);
         for (int x = 0; x < 512; ++x) {
@@ -88,7 +92,10 @@ void ResponseGraph::animate() {
         }
     }
     const auto bands = processor.readSettings().bands;
-    if (analyzerOn || std::any_of(bands.begin(), bands.end(), params::usesDynamics)) repaint();
+    if (!spectrumChanged && !historyScrolls && !std::any_of(bands.begin(), bands.end(), params::usesDynamics)) return;
+    repaint(plot().getSmallestIntegerContainer());
+    // The hover readout shows the level under the cursor.
+    if (hoverX >= 0) repaint(0, 0, analyzerToggle.getX(), 40);
 }
 juce::Rectangle<float> ResponseGraph::plot() const { return getLocalBounds().toFloat().withTrimmedLeft(48).withTrimmedRight(48).withTrimmedTop(44).withTrimmedBottom(32); }
 double ResponseGraph::frequencyAt(float x) const { const auto p = plot(); return 20 * std::pow(1000.0, juce::jlimit(0.0f, 1.0f, (x - p.getX()) / p.getWidth())); }
@@ -132,9 +139,13 @@ void ResponseGraph::paint(juce::Graphics& g) {
         settings.bands[i].frequency = processor.bandFrequency(static_cast<int>(i));
     }
     const auto rate = processor.displaySampleRate();
-    // The curves take five filter designs and about 2,500 magnitudes, so they rebuild only when a setting changes.
-    if (settings != curveSettings || rate != curveRate) {
-        curveSettings = settings; curveRate = rate;
+    // A rebuild costs five filter designs and about 2,500 magnitudes.
+    // Dynamic range, drive and the threshold do not change the static curves.
+    auto curveKey = settings;
+    for (auto& band : curveKey.bands) band.dynamicDb = band.drive = 0;
+    curveKey.dynamicThresholdDb = 0;
+    if (curveKey != curveSettings || rate != curveRate) {
+        curveSettings = curveKey; curveRate = rate;
         for (auto& curve : curves) curve.clear();
         total.clear();
         std::array<ote::FilterDesign, 5> designs{};
@@ -205,7 +216,7 @@ void ResponseGraph::paint(juce::Graphics& g) {
         }
         const auto& band = settings.bands[static_cast<size_t>(i)];
         if (params::usesDynamics(band)) {
-            // The line spans the dynamic range; the ring shows the gain the band adds now.
+            // The line spans the dynamic range. The ring shows the live gain.
             g.setColour(color.withAlpha(0.45f)); g.drawLine(pt.x, pt.y, pt.x, yFor(band.gainDb + band.dynamicDb), 3);
             const auto live = yFor(band.gainDb + processor.dynamicGains[static_cast<size_t>(i)].load());
             g.setColour(color.withAlpha(0.8f)); g.drawEllipse(pt.x - 7, live - 7, 14, 14, 1.5f);
@@ -277,7 +288,7 @@ void ResponseGraph::mouseDown(const juce::MouseEvent& e) {
     dragging = nodeAt(e.position);
     if (dragging < 0) return;
     selected = dragging; if (onSelect) onSelect(selected);
-    // The drag moves the node from where it was, so an off-centre grab does not jump.
+    // The drag starts from the node, so an off-centre grab does not jump.
     const auto band = processor.readSettings().bands[static_cast<size_t>(dragging)];
     lastDrag = e.position; dragX = pointFor(dragging).x; dragDb = band.gainDb;
     processor.state.getParameter(params::bandId(dragging, "freq"))->beginChangeGesture();
@@ -295,7 +306,7 @@ void ResponseGraph::mouseDrag(const juce::MouseEvent& e) {
     const auto hz = ote::effectiveFrequency(frequencyAt(dragX), settings.snap, processor.displaySampleRate(), processor.referencePitch());
     auto* parameter = processor.state.getParameter(params::bandId(dragging, "freq"));
     parameter->setValueNotifyingHost(parameter->convertTo0to1(static_cast<float>(hz)));
-    // The node shows gain times Scale, so the parameter takes the shown gain divided by Scale.
+    // The node shows gain times Scale.
     if (gainGesture && settings.scale > 0) {
         auto* gain = processor.state.getParameter(params::bandId(dragging, "gain"));
         gain->setValueNotifyingHost(gain->convertTo0to1(static_cast<float>(dragDb / settings.scale)));
@@ -325,7 +336,7 @@ void ResponseGraph::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseW
     }
     const auto current = processor.readSettings().bands[static_cast<size_t>(band)].q;
     q->setValueNotifyingHost(q->convertTo0to1(static_cast<float>(std::clamp(current * std::exp(wheel.deltaY * 2), 0.1, 18.0))));
-    // The gesture ends after a 400 ms pause, so one scroll is one undo step.
+    // A 400 ms pause ends the gesture, so one scroll is one undo step.
     startTimer(400);
 }
 void ResponseGraph::timerCallback() { endWheel(); }
@@ -338,12 +349,6 @@ void ResponseGraph::endWheel() {
 namespace {
 bool blackKey(int midi) { const auto p = midi % 12; return p == 1 || p == 3 || p == 6 || p == 8 || p == 10; }
 }
-// The keyboard scrolls only when the selected band's note leaves it, so a clicked key stays under the cursor.
-void PianoStrip::followSelectedNote() {
-    const auto note = ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch());
-    if (first >= 0 && note >= first && note < first + keyCount) return;
-    first = juce::jlimit(12, 96, (note / 12 - 1) * 12);
-}
 juce::Rectangle<float> PianoStrip::keyBounds(int offset) const {
     int whites = 0;
     for (int i = 0; i < offset; ++i) if (!blackKey(i)) ++whites;
@@ -352,8 +357,9 @@ juce::Rectangle<float> PianoStrip::keyBounds(int offset) const {
     return {width * whites + 1, 0, width - 2, static_cast<float>(getHeight())};
 }
 void PianoStrip::paint(juce::Graphics& g) {
-    followSelectedNote();
+    // Scroll only when the note leaves the keys, so a clicked key stays under the cursor.
     const auto current = ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch());
+    if (first < 0 || current < first || current >= first + keyCount) first = juce::jlimit(12, 96, (current / 12 - 1) * 12);
     const auto colour = ui::bandColours[static_cast<size_t>(selected)];
     for (bool black : {false, true}) for (int i = 0; i < keyCount; ++i) {
         if (blackKey(i) != black) continue;
@@ -367,7 +373,6 @@ void PianoStrip::paint(juce::Graphics& g) {
         ui::text(g, juce::String(ote::noteName(midi, processor.usesFlats())), rect.withTrimmedTop(rect.getHeight() - 19), black ? 8.0f : 10.0f,
                  black && midi != current ? ui::muted : ui::background, juce::Justification::centred, midi == current);
     }
-    // A dot in each enabled band's colour marks its note. Bands on one note stack upward.
     const auto settings = processor.readSettings();
     std::array<int, 5> notes {};
     for (size_t band = 0; band < notes.size(); ++band) notes[band] = ote::nearestNote(processor.bandFrequency(static_cast<int>(band)), processor.referencePitch());
@@ -382,7 +387,8 @@ void PianoStrip::paint(juce::Graphics& g) {
     }
 }
 void PianoStrip::mouseDown(const juce::MouseEvent& e) {
-    followSelectedNote();
+    const auto current = ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch());
+    if (first < 0 || current < first || current >= first + keyCount) first = juce::jlimit(12, 96, (current / 12 - 1) * 12);
     for (bool black : {true, false}) for (int i = 0; i < keyCount; ++i) {
         if (blackKey(i) != black || !keyBounds(i).contains(e.position)) continue;
         const auto midi = first + i; const auto hz = ote::noteFrequency(midi, processor.referencePitch());

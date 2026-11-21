@@ -28,11 +28,12 @@ public:
             if (armed == &saveButton) { const auto replace = pending; disarm(); replace(); return; }
             askName("Save preset", "Saved presets go in your Documents folder.", "My preset", [this](const juce::String& name) {
                 auto save = [this, name] {
-                    if (processor.savePreset(name)) reload();
-                    else status.setText("That name is reserved or invalid.", juce::dontSendNotification);
+                    if (!processor.savePreset(name)) { status.setText("That name is reserved or invalid.", juce::dontSendNotification); return; }
+                    reload();
                 };
-                if (!presets.directory().getChildFile(PresetStore::cleanName(name) + ".xml").existsAsFile()) { save(); return; }
-                arm(saveButton, "Replace?", save);
+                if (!presets.exists(name)) { save(); return; }
+                disarm();
+                armed = &saveButton; pending = save; saveButton.setButtonText("Replace?"); startTimer(3000);
                 status.setText("A preset named " + name + " exists. Click Replace? to overwrite it.", juce::dontSendNotification);
             });
         };
@@ -44,8 +45,11 @@ public:
         };
         deleteButton.onClick = [this] {
             if (armed == &deleteButton) { const auto remove = pending; disarm(); remove(); return; }
-            if (const auto* item = selected()) if (!item->factory)
-                arm(deleteButton, "Delete?", [this, item = *item] { if (presets.remove(item)) reload(); });
+            const auto* item = selected();
+            if (item == nullptr || item->factory) return;
+            disarm();
+            armed = &deleteButton; pending = [this, doomed = *item] { if (presets.remove(doomed)) reload(); };
+            deleteButton.setButtonText("Delete?"); startTimer(3000);
         };
         status.setColour(juce::Label::textColourId, ui::muted);
         status.setFont(ui::font(12));
@@ -119,13 +123,7 @@ private:
         processor.loadPreset(*item);
         status.setText(item->factory ? "Factory presets stay read-only." : "Loaded " + item->name + ".", juce::dontSendNotification);
     }
-    // Replace and delete take a second click within 3 s. Meanwhile the button asks the question.
-    void arm(juce::TextButton& button, const juce::String& question, std::function<void()> action) {
-        disarm();
-        armed = &button; pending = std::move(action);
-        button.setButtonText(question);
-        startTimer(3000);
-    }
+    // Replace and delete need a second click within 3 s.
     void disarm() {
         stopTimer();
         armed = nullptr; pending = nullptr;
@@ -164,11 +162,20 @@ SuiteBar::SuiteBar(TunerProcessor& p) : processor(p), history(p.history()), comp
     copyAtoB.setComponentID("copyAtoB"); copyBtoA.setComponentID("copyBtoA");
     presetButton.setComponentID("presets");
     previousButton.setComponentID("presetPrevious"); nextButton.setComponentID("presetNext");
-    undoButton.setTitle("Undo"); redoButton.setTitle("Redo"); slotA.setTitle("Slot A"); slotB.setTitle("Slot B");
+    slotA.setTitle("Slot A"); slotB.setTitle("Slot B");
     copyAtoB.setTitle("Copy A to B"); copyBtoA.setTitle("Copy B to A"); previousButton.setTitle("Previous preset"); nextButton.setTitle("Next preset");
     previousButton.setTooltip("Previous preset"); nextButton.setTooltip("Next preset");
-    previousButton.onClick = [this] { step(-1); };
-    nextButton.onClick = [this] { step(1); };
+    // The arrows follow the browser's order and wrap.
+    for (auto* arrow : {&previousButton, &nextButton}) arrow->onClick = [this, direction = arrow == &nextButton ? 1 : -1] {
+        const auto items = presets.filtered({});
+        if (items.isEmpty()) return;
+        const auto name = processor.presetTitle();
+        const auto found = std::find_if(items.begin(), items.end(), [&name](const PresetStore::Item& item) { return item.name == name; });
+        auto from = static_cast<int>(std::distance(items.begin(), found));
+        if (found == items.end() && direction > 0) from = -1;
+        processor.loadPreset(items[(from + direction + items.size()) % items.size()]);
+        refresh();
+    };
     undoButton.setTooltip("Undo the last parameter edit");
     redoButton.setTooltip("Redo the last undone edit");
     slotA.setTooltip("Hear slot A"); slotB.setTooltip("Hear slot B");
@@ -204,20 +211,12 @@ void SuiteBar::refresh() {
     slotA.setToggleState(!compare.isB(), juce::dontSendNotification);
     slotB.setToggleState(compare.isB(), juce::dontSendNotification);
     const auto name = processor.presetTitle();
-    const auto shown = name.length() > 24 ? name.substring(0, 23) + "..." : name;
-    presetButton.setButtonText(name.isEmpty() ? "Presets" : shown + (processor.presetEdited() ? " *" : ""));
-    presetButton.setTitle("Presets: " + presetButton.getButtonText());
-}
-// Steps through the browser's list order and wraps at the ends. An unknown name steps from either end.
-void SuiteBar::step(int direction) {
-    const auto items = presets.filtered({});
-    if (items.isEmpty()) return;
-    const auto name = processor.presetTitle();
-    const auto found = std::find_if(items.begin(), items.end(), [&name](const PresetStore::Item& item) { return item.name == name; });
-    auto from = static_cast<int>(std::distance(items.begin(), found));
-    if (found == items.end() && direction > 0) from = -1;
-    processor.loadPreset(items[(from + direction + items.size()) % items.size()]);
-    refresh();
+    auto shown = name;
+    if (name.length() > 24) shown = name.substring(0, 23) + "...";
+    if (processor.presetEdited()) shown += " *";
+    if (name.isEmpty()) shown = "Presets";
+    presetButton.setButtonText(shown);
+    presetButton.setTitle("Presets: " + shown);
 }
 void SuiteBar::openBrowser() {
     if (callout != nullptr) { callout->dismiss(); return; }

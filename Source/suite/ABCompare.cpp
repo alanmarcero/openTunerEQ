@@ -1,22 +1,21 @@
 #include "ABCompare.h"
 #include "ParameterUndo.h"
 namespace suite {
-ABCompare::ABCompare(Export exporter, Import importer, ParameterUndo& undo)
-    : exportState(std::move(exporter)), importState(std::move(importer)), history(undo) {}
+ABCompare::ABCompare(ParameterUndo& undo) : history(undo) {}
 void ABCompare::prime() {
     active = 0;
-    exportState(slots[0]);
+    slots[0] = history.capture();
     slots[1] = slots[0];
     history.clearSlot(0); history.clearSlot(1); history.selectSlot(0);
 }
-void ABCompare::flushActive() { exportState(slots[static_cast<size_t>(active)]); }
-// A switch swaps histories and is not an undo step, so undo never applies the other slot's state.
+void ABCompare::flushActive() { slots[static_cast<size_t>(active)] = history.capture(); }
+// A switch is not an undo step, so undo never applies the other slot's state.
 void ABCompare::toggle() {
     flushActive();
     active = 1 - active;
     history.selectSlot(active);
     if (slots[static_cast<size_t>(active)].getSize() > 0)
-        importState(slots[static_cast<size_t>(active)]);
+        history.restore(slots[static_cast<size_t>(active)]);
 }
 void ABCompare::copyAtoB() { copyBetween(0, 1); }
 void ABCompare::copyBtoA() { copyBetween(1, 0); }
@@ -26,7 +25,7 @@ void ABCompare::copyBetween(int from, int to) {
     slots[static_cast<size_t>(to)] = slots[static_cast<size_t>(from)];
     history.clearSlot(to);
     if (active == to && slots[static_cast<size_t>(to)].getSize() > 0)
-        importState(slots[static_cast<size_t>(to)]);
+        history.restore(slots[static_cast<size_t>(to)]);
 }
 void ABCompare::writeXml(juce::XmlElement& suite) const {
     suite.setAttribute("active", active);

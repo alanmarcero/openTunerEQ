@@ -1,8 +1,12 @@
 #include "PluginEditor.h"
 #include "Notes.h"
 #include <BinaryData.h>
+namespace {
+constexpr int designWidth = 1160, designHeight = 900;
+constexpr int allPanels = 0x1f, pianoRefresh = 1 << 5, anyRefresh = 1 << 6, everything = allPanels | pianoRefresh | anyRefresh;
+}
 Faceplate::Faceplate() : image(juce::ImageCache::getFromMemory(BinaryData::analogcyberfaceplate_png, BinaryData::analogcyberfaceplate_pngSize)) {
-    setOpaque(true); setBufferedToImage(true); setInterceptsMouseClicks(false, false);
+    setComponentID("faceplate"); setOpaque(true); setBufferedToImage(true); setInterceptsMouseClicks(false, false);
 }
 void Faceplate::paint(juce::Graphics& g) {
     g.fillAll(ui::background);
@@ -33,9 +37,7 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     addAndMakeVisible(content);
     for (juce::Component* c : std::initializer_list<juce::Component*>{&faceplate, &fork, &meter}) content.addAndMakeVisible(c);
     meter.setTooltip("Output level. Click to clear the clip light.");
-    for (auto* button : {&snap, &flats, &bypass, &autoGain, &soloSelected, &phaseComp}) {
-        button->setClickingTogglesState(true); button->setTitle(button->getButtonText()); content.addAndMakeVisible(button);
-    }
+    for (auto* button : {&snap, &flats, &bypass, &autoGain, &soloSelected, &phaseComp}) { button->setClickingTogglesState(true); content.addAndMakeVisible(button); }
     octaveDown.setTitle("Tune down one octave"); octaveUp.setTitle("Tune up one octave"); qMode.setTitle("Bell Q law");
     output.setTitle("Output gain"); reference.setTitle("A4 reference"); scale.setTitle("Scale"); dynThreshold.setTitle("Dynamic threshold");
     snap.setComponentID("snap"); flats.setComponentID("flats"); bypass.setComponentID("bypass");
@@ -84,12 +86,21 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     octaveUp.setTooltip("Tune the selected band up one octave");
     octaveDown.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) - 12); };
     octaveUp.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) + 12); };
-    // Read the saved width first: setResizeLimits lays the editor out at the minimum size.
-    const auto width = juce::jlimit(812, 1740, processor.editorWidth.load());
-    setResizable(true, true); setResizeLimits(812, 630, 1740, 1350);
-    if (auto* constrainer = getConstrainer()) constrainer->setFixedAspectRatio(1160.0 / 900.0);
-    setSize(width, juce::roundToInt(width * 900.0 / 1160.0));
+    // setResizeLimits calls resized(), which overwrites the saved width.
+    const auto width = juce::jlimit(designWidth * 7 / 10, designWidth * 3 / 2, processor.editorWidth.load());
+    setResizable(true, true); setResizeLimits(designWidth * 7 / 10, designHeight * 7 / 10, designWidth * 3 / 2, designHeight * 3 / 2);
+    if (auto* constrainer = getConstrainer()) constrainer->setFixedAspectRatio(static_cast<double>(designWidth) / designHeight);
+    setSize(width, juce::roundToInt(width * static_cast<double>(designHeight) / designWidth));
     setWantsKeyboardFocus(true);
+    // Snap, flats, A4, Scale and the threshold change what every panel shows.
+    for (auto* parameter : processor.getParameters()) {
+        const auto& id = dynamic_cast<juce::RangedAudioParameter&>(*parameter).paramID;
+        auto mask = anyRefresh;
+        if (id.startsWith("band")) mask |= 1 << (id[4] - '0');
+        if (id == "snap" || id == "flats" || id == "a4" || id == "scale" || id == "dynThreshold") mask |= allPanels;
+        if (id.endsWith(".freq") || id.endsWith(".enabled") || id == "snap" || id == "flats" || id == "a4") mask |= pianoRefresh;
+        refreshMasks.push_back(mask);
+    }
     for (auto* parameter : processor.getParameters()) parameter->addListener(this);
     select(processor.activeSelectedBand.load()); startTimerHz(24);
 }
@@ -97,28 +108,28 @@ TunerEditor::~TunerEditor() {
     for (auto* parameter : processor.getParameters()) parameter->removeListener(this);
     stopTimer(); setLookAndFeel(nullptr);
 }
-// Host automation can call this on the audio thread, so it only raises a flag for the timer.
-void TunerEditor::parameterValueChanged(int, float) { parametersChanged = true; }
+// Host automation can call this on the audio thread.
+void TunerEditor::parameterValueChanged(int index, float) { pendingRefresh.fetch_or(refreshMasks[static_cast<size_t>(index)]); }
 void TunerEditor::select(int band) {
     selected = band;
     processor.activeSelectedBand.store(band);
     graph.setSelected(band); piano.setSelected(band);
     for (int i = 0; i < 5; ++i) panels[static_cast<size_t>(i)]->setSelected(i == band);
-    refresh();
+    pendingRefresh.fetch_or(everything);
+    timerCallback();
 }
-// Only the fork, the meters and a moving graph repaint every tick. The rest waits for a parameter change.
+// Panels, piano and labels refresh only after a parameter change.
 void TunerEditor::timerCallback() {
-    if (parametersChanged.exchange(false) || shownRate != processor.displaySampleRate()) refresh();
     suite.refresh();
     graph.animate();
-    if (forkPhase == processor.artworkPhase()) return;
-    forkPhase = processor.artworkPhase();
-    fork.repaint();
-}
-void TunerEditor::refresh() {
+    if (forkPhase != processor.artworkPhase()) { forkPhase = processor.artworkPhase(); fork.repaint(); }
+    auto changed = pendingRefresh.exchange(0);
+    if (shownRate != processor.displaySampleRate()) changed = everything;
+    if (changed == 0) return;
     shownRate = processor.displaySampleRate();
-    for (auto& panel : panels) panel->refresh();
-    graph.refresh(); piano.repaint();
+    for (int i = 0; i < 5; ++i) if ((changed & (1 << i)) != 0) panels[static_cast<size_t>(i)]->refresh();
+    graph.refresh();
+    if ((changed & pianoRefresh) != 0) piano.repaint();
     const auto hz = processor.bandFrequency(selected); const auto midi = ote::nearestNote(hz, processor.referencePitch());
     selectedLabel.setText("Band " + juce::String(selected + 1) + "  /  " + juce::String(ote::noteName(midi, processor.usesFlats())), juce::dontSendNotification);
     selectedLabel.setColour(juce::Label::textColourId, ui::bandColours[static_cast<size_t>(selected)]);
@@ -144,11 +155,10 @@ void TunerEditor::refresh() {
                    settings.soloBand < 0 ? "" : "Solo Band turns it off. Turn off Solo Band to use it.");
 }
 void TunerEditor::resized() {
-    const auto factor = std::min(getWidth() / 1160.0f, getHeight() / 900.0f);
-    content.setBounds(0, 0, 1160, 900);
-    content.setTransform(juce::AffineTransform::scale(factor).translated((getWidth() - 1160 * factor) / 2, (getHeight() - 900 * factor) / 2));
+    content.setBounds(0, 0, designWidth, designHeight);
+    content.setTransform(juce::RectanglePlacement(juce::RectanglePlacement::centred).getTransformToFit(content.getLocalBounds().toFloat(), getLocalBounds().toFloat()));
     processor.editorWidth = getWidth();
-    faceplate.setBounds(0, 0, 1160, 900); fork.setBounds(20, 8, 56, 56); meter.setBounds(944, 56, 122, 5);
+    faceplate.setBounds(content.getLocalBounds()); fork.setBounds(20, 8, 56, 56); meter.setBounds(944, 56, 122, 5);
     snap.setBounds(348, 16, 114, 40); flats.setBounds(468, 16, 86, 40);
     soloSelected.setBounds(560, 16, 86, 40); autoGain.setBounds(652, 16, 86, 40);
     scale.setBounds(778, 18, 116, 36);

@@ -18,6 +18,8 @@ public:
     void applyChange(const juce::String& name, std::function<void()> change);
     void selectSlot(int index) noexcept { slot = index; }
     void clearSlot(int index) { managers[static_cast<size_t>(index)].clearUndoHistory(); }
+    juce::MemoryBlock capture() const;
+    void restore(const juce::MemoryBlock&);
     // Called when an edit gesture becomes an undo step.
     std::function<void()> onEdit;
 
@@ -33,8 +35,6 @@ private:
     int suppress = 0;
     int openGestures = 0;
     std::vector<std::pair<juce::AudioProcessorParameter*, float>> gestureStart;
-    juce::MemoryBlock capture() const;
-    void restore(const juce::MemoryBlock&);
     void parameterValueChanged(int, float) override {}
     void parameterGestureChanged(int, bool) override;
 };
