@@ -21,7 +21,7 @@ public:
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return ote::estimateTailSeconds(readSettings(), displaySampleRate()); }
     int getNumPrograms() override;
-    int getCurrentProgram() override { return program; }
+    int getCurrentProgram() override { return preset.program; }
     void setCurrentProgram(int) override;
     const juce::String getProgramName(int) override;
     void changeProgramName(int, const juce::String&) override {}
@@ -37,9 +37,9 @@ public:
     suite::ParameterUndo& history() noexcept { return undoHistory; }
     suite::ABCompare& compare() noexcept { return abCompare; }
     suite::PresetStore& presets() noexcept { return presetStore; }
-    juce::String presetTitle() const { return presetName; }
+    juce::String presetTitle() const { return preset.name; }
     // True after an edit since the last load or save.
-    bool presetEdited() const noexcept { return edited; }
+    bool presetEdited() const noexcept { return preset.edited; }
     std::unique_ptr<juce::XmlElement> parameterXml();
     void loadPresetXml(const juce::XmlElement&, const juce::String& name);
     void loadPreset(const suite::PresetStore::Item&);
@@ -59,9 +59,15 @@ private:
     suite::ParameterUndo undoHistory;
     suite::ABCompare abCompare;
     suite::PresetStore presetStore;
-    int program = 0;
-    juce::String presetName;
-    bool edited = false;
+    // The loaded preset. Each A/B slot and the session store it.
+    struct Preset {
+        juce::String name;
+        int program = 0;
+        bool edited = false;
+        void write(juce::XmlElement&) const;
+        void read(const juce::XmlElement&);
+    };
+    Preset preset;
     void writeParameters(juce::MemoryBlock&);
     void readParameters(const juce::MemoryBlock&);
     void injectDefaults(juce::ValueTree&) const;
