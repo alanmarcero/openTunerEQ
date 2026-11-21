@@ -1,6 +1,6 @@
 # openTunerEQ
 
-A five-band equalizer with note-aware controls and a live spectrum display.
+A five-band equalizer with note-aware controls and a live audio analyzer.
 
 ![openTunerEQ equalizer and analyzer](docs/screenshots/preview.png)
 
