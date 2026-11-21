@@ -6,6 +6,9 @@ inline const std::array<juce::Colour, 5> bandColours {
     juce::Colour(0xffffbe3b), juce::Colour(0xff48f0c8), juce::Colour(0xff78c6c1), juce::Colour(0xff84b9db), juce::Colour(0xffb9a3d5)};
 juce::Font font(float size, bool bold = false);
 void text(juce::Graphics&, const juce::String&, juce::Rectangle<float>, float size, juce::Colour = ink, juce::Justification = juce::Justification::centredLeft, bool bold = false);
+inline constexpr float inactiveAlpha = 0.4f;
+// An empty hint marks the control active. Otherwise the control dims and its tooltip adds the hint.
+void showActive(juce::Component& control, const juce::String& tooltip, const juce::String& hint);
 class Theme final : public juce::LookAndFeel_V4 {
 public:
     Theme();

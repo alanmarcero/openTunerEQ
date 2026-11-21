@@ -8,18 +8,15 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     setName("Band " + juce::String(band + 1));
     enabled.setClickingTogglesState(true); enabled.setColour(juce::TextButton::buttonOnColourId, colour);
     enabled.setTooltip("Enable or bypass this EQ band");
-    note.setComponentID(id("note")); note.setTooltip("Choose the musical note directly");
+    note.setComponentID(id("note"));
     note.setColour(juce::ComboBox::textColourId, colour);
-    octave.setTooltip("Octave (C4 is middle C)");
     for (int i = 0; i <= 10; ++i) octave.addItem(juce::String(i), i + 1);
     populateNotes();
     shape.addItemList(params::shapes, 1); slope.addItemList(params::slopes, 1); placement.addItemList(params::placements, 1);
-    shape.setTooltip("Filter shape"); slope.setTooltip("Cut steepness in dB per octave. 96 is steep, not an ideal brick wall.");
     placement.setComponentID(id("placement"));
-    placement.setTooltip("Stereo, Left, Right, Mid, or Side. Mid and Side keep a centered signal unchanged when the band is flat. Stereo is the default.");
     frequency.setSliderStyle(juce::Slider::LinearHorizontal);
     frequency.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    frequency.setComponentID(id("freq")); frequency.setTooltip("Frequency in Hz. Double-click to reset.");
+    frequency.setComponentID(id("freq"));
     frequency.setNumDecimalPlacesToDisplay(2);
     frequency.setTextValueSuffix(" Hz");
     frequency.setDoubleClickReturnValue(true, p.state.getParameter(id("freq"))->convertFrom0to1(p.state.getParameter(id("freq"))->getDefaultValue()));
@@ -31,17 +28,14 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     }
     frequency.setColour(juce::Slider::rotarySliderFillColourId, colour);
     gain.setDoubleClickReturnValue(true, 0); gain.setComponentID(id("gain"));
-    gain.setTooltip("Boost or cut for bell and shelf shapes");
-    q.setDoubleClickReturnValue(true, 0.7071); q.setComponentID(id("q")); q.setTooltip("Width / resonance. Higher Q is narrower. Steep cuts use fixed Butterworth Q.");
+    q.setDoubleClickReturnValue(true, 0.7071); q.setComponentID(id("q"));
     for (auto* slider : {&dynamic, &drive}) {
         slider->setSliderStyle(juce::Slider::LinearBar);
         slider->setColour(juce::Slider::trackColourId, colour.withAlpha(0.45f));
         slider->setDoubleClickReturnValue(true, 0);
     }
     dynamic.setTextValueSuffix(" dyn"); dynamic.setComponentID(id("dyn"));
-    dynamic.setTooltip("Dynamic range. The band adds this much gain as its note rises above the dynamic threshold. Negative tames resonances.");
     drive.setTextValueSuffix(" drive"); drive.setComponentID(id("drive"));
-    drive.setTooltip("Analog-style saturation of this band's boost or cut");
     hz.setFont(ui::font(17, true)); hz.setColour(juce::Label::textColourId, ui::ink); hz.setJustificationType(juce::Justification::centred);
     cents.setFont(ui::font(11)); cents.setColour(juce::Label::textColourId, ui::muted); cents.setJustificationType(juce::Justification::centred);
     for (juce::Component* c : std::initializer_list<juce::Component*>{&enabled, &placement, &note, &octave, &down, &up, &frequency, &gain, &q, &shape, &slope, &dynamic, &drive, &hz, &cents}) addAndMakeVisible(c);
@@ -64,7 +58,6 @@ BandPanel::BandPanel(TunerProcessor& p, int band) : processor(p), index(band), c
     up.onClick = [this] { chooseNote(ote::nearestNote(processor.bandFrequency(index), processor.referencePitch()) + 1); };
     down.setTitle("Lower band by one semitone");
     up.setTitle("Raise band by one semitone");
-    down.setTooltip("Lower this band's frequency by one semitone"); up.setTooltip("Raise this band's frequency by one semitone");
     addMouseListener(this, true);
     refresh();
 }
@@ -106,7 +99,25 @@ void BandPanel::refresh() {
     cents.setText(settings.snap ? "Locked to note" : ((centsValue >= 0 ? "+" : "") + juce::String(centsValue, 1) + " cents / free"), juce::dontSendNotification);
     const auto& b = settings.bands[static_cast<size_t>(index)];
     enabled.setButtonText(b.enabled ? "Enabled" : "Disabled");
-    gain.setEnabled(ote::usesGain(b.shape)); q.setEnabled(ote::usesQ(b)); slope.setEnabled(ote::isCut(b.shape));
+    const juce::String bandOff = b.enabled ? "" : "Turn the band on to use it.";
+    auto hint = [&bandOff](bool active, const juce::String& howToTurnOn) -> juce::String {
+        if (bandOff.isNotEmpty()) return bandOff;
+        if (active) return {};
+        return howToTurnOn;
+    };
+    ui::showActive(placement, "Stereo, Left, Right, Mid, or Side. Mid and Side keep a centered signal unchanged when the band is flat. Stereo is the default.", bandOff);
+    ui::showActive(note, "Choose the musical note directly.", bandOff);
+    ui::showActive(octave, "Octave (C4 is middle C).", bandOff);
+    ui::showActive(down, "Lower this band's frequency by one semitone.", bandOff);
+    ui::showActive(up, "Raise this band's frequency by one semitone.", bandOff);
+    ui::showActive(frequency, "Frequency in Hz. Double-click to reset.", bandOff);
+    ui::showActive(shape, "Filter shape.", bandOff);
+    ui::showActive(gain, "Boost or cut for bell and shelf shapes.", hint(ote::usesGain(b.shape), "Choose Bell, Low shelf or High shelf to use it."));
+    ui::showActive(q, "Width / resonance. Higher Q is narrower.", hint(ote::usesQ(b), "Steep cuts use a fixed Butterworth Q. Choose 12 dB/oct to use it."));
+    ui::showActive(slope, "Cut steepness in dB per octave. 96 is steep, not an ideal brick wall.", hint(ote::isCut(b.shape), "Choose High pass or Low pass to use it."));
+    ui::showActive(dynamic, "Dynamic range. The band adds this much gain as its note rises above the dynamic threshold. Negative tames resonances.", bandOff);
+    ui::showActive(drive, "Analog-style saturation of this band's boost or cut.", hint(std::abs(b.gainDb) > params::zeroDb || std::abs(b.dynamicDb) > params::zeroDb, "Set a gain or dynamic range to use it."));
+    for (auto* label : {&hz, &cents}) label->setAlpha(b.enabled ? 1.0f : ui::inactiveAlpha);
     slope.setVisible(!ote::usesGain(b.shape)); dynamic.setVisible(ote::usesGain(b.shape)); drive.setVisible(ote::usesGain(b.shape));
     updating = false;
     repaint();
@@ -119,11 +130,12 @@ void BandPanel::paint(juce::Graphics& g) {
     g.setColour(selected ? colour.withAlpha(0.8f) : ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(area, 9, selected ? 1.5f : 1.0f);
     g.setColour(colour.withAlpha(enabled.getToggleState() ? 1.0f : 0.25f)); g.fillRoundedRectangle(15, 18, 6, 6, 3);
     ui::text(g, "Band " + juce::String(index + 1), {28, 10, 95, 22}, 13, ui::ink, juce::Justification::centredLeft, true);
-    ui::text(g, "Place", {16, 32, 70, 14}, 12, ui::muted);
-    ui::text(g, "Note", {16, 90, 100, 16}, 12, ui::muted);
-    ui::text(g, "Octave", {153, 90, 50, 16}, 12, ui::muted);
-    ui::text(g, "Gain", {15, 198, 83, 16}, 12, ui::muted, juce::Justification::centred);
-    ui::text(g, "Q / width", {115, 198, 83, 16}, 12, ui::muted, juce::Justification::centred);
+    const auto caption = ui::muted.withMultipliedAlpha(enabled.getToggleState() ? 1.0f : ui::inactiveAlpha);
+    ui::text(g, "Place", {16, 32, 70, 14}, 12, caption);
+    ui::text(g, "Note", {16, 90, 100, 16}, 12, caption);
+    ui::text(g, "Octave", {153, 90, 50, 16}, 12, caption);
+    ui::text(g, "Gain", {15, 198, 83, 16}, 12, caption, juce::Justification::centred);
+    ui::text(g, "Q / width", {115, 198, 83, 16}, 12, caption, juce::Justification::centred);
 }
 void BandPanel::resized() {
     const auto w = getWidth();

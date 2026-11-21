@@ -7,19 +7,14 @@ ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spect
     analyzerToggle.setTooltip("Show the track's live audio spectrum behind the EQ response. Turning this off stops analysis.");
     analyzerStyle.setComponentID("analyzerStyle");
     analyzerStyle.addItemList({"Spectrum", "Bars", "Spectrogram"}, 1);
-    analyzerStyle.setTooltip("Spectrum: detailed peaks. Bars: frequency regions. Spectrogram: recent frequency history, newest at the top.");
     analyzerSource.setComponentID("analyzerSource");
     analyzerSource.addItemList({"Before EQ", "After EQ"}, 1);
-    analyzerSource.setTooltip("Before EQ: the incoming track. After EQ: the processed track, including output gain and bypass.");
     freezeToggle.setComponentID("analyzerFreeze");
     freezeToggle.setClickingTogglesState(true);
-    freezeToggle.setTooltip("Hold the highest measured spectrum level until Freeze is turned off.");
     analyzerRelease.setComponentID("analyzerRelease");
     analyzerRelease.addItemList({"Slow 24", "Medium 48", "Fast 96"}, 1);
-    analyzerRelease.setTooltip("Peak decay speed in dB per second.");
     analyzerTilt.setComponentID("analyzerTilt");
     analyzerTilt.addItemList({"0 dB/oct", "3 dB/oct", "4.5 dB/oct", "6 dB/oct"}, 1);
-    analyzerTilt.setTooltip("Tilt the spectrum around 1 kHz to make low-frequency balance easier to read.");
     addAndMakeVisible(analyzerToggle); addAndMakeVisible(freezeToggle); addAndMakeVisible(analyzerRelease);
     addAndMakeVisible(analyzerTilt); addAndMakeVisible(analyzerStyle); addAndMakeVisible(analyzerSource);
     analyzerAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "analyzerEnabled", analyzerToggle);
@@ -53,11 +48,12 @@ void ResponseGraph::refresh() {
     analyzerOn = enabled; style = nextStyle; afterEQ = nextAfterEQ;
     analyzer.setFrozen(analyzerFrozen);
     analyzer.setReleaseDbPerSecond(releaseRates[static_cast<size_t>(releaseIndex)]);
-    analyzerStyle.setEnabled(enabled);
-    analyzerSource.setEnabled(enabled);
-    freezeToggle.setEnabled(enabled);
-    analyzerRelease.setEnabled(enabled);
-    analyzerTilt.setEnabled(enabled);
+    const juce::String analyzerOff = enabled ? "" : "Turn on the analyzer to use it.";
+    ui::showActive(analyzerStyle, "Spectrum: detailed peaks. Bars: frequency regions. Spectrogram: recent frequency history, newest at the top.", analyzerOff);
+    ui::showActive(analyzerSource, "Before EQ: the incoming track. After EQ: the processed track, including output gain and bypass.", analyzerOff);
+    ui::showActive(freezeToggle, "Hold the highest measured spectrum level until Freeze is turned off.", analyzerOff);
+    ui::showActive(analyzerRelease, "Peak decay speed in dB per second.", analyzerOff);
+    ui::showActive(analyzerTilt, "Tilt the spectrum around 1 kHz to make low-frequency balance easier to read.", analyzerOff);
     processor.spectrum.setActive(enabled);
     if (enabled) analyzer.update(juce::Time::getMillisecondCounterHiRes() * 0.001, afterEQ);
     else {

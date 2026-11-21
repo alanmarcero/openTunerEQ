@@ -4,6 +4,14 @@ juce::Font font(float size, bool bold) { return juce::Font(juce::FontOptions(siz
 void text(juce::Graphics& g, const juce::String& value, juce::Rectangle<float> bounds, float size, juce::Colour colour, juce::Justification alignment, bool bold) {
     g.setColour(colour); g.setFont(font(size, bold)); g.drawText(value, bounds, alignment, false);
 }
+void showActive(juce::Component& control, const juce::String& tooltip, const juce::String& hint) {
+    const auto tip = hint.isEmpty() ? tooltip : tooltip + " " + hint;
+    control.setAlpha(hint.isEmpty() ? 1.0f : inactiveAlpha);
+    if (auto* client = dynamic_cast<juce::SettableTooltipClient*>(&control)) client->setTooltip(tip);
+    // A slider copies its tooltip into its text box only when it creates the box.
+    for (auto* child : control.getChildren())
+        if (auto* client = dynamic_cast<juce::SettableTooltipClient*>(child)) client->setTooltip(tip);
+}
 Theme::Theme() {
     setColour(juce::Slider::textBoxTextColourId, ink);
     setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
@@ -69,7 +77,8 @@ void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, floa
 void Theme::drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour&, bool over, bool down) {
     auto area = button.getLocalBounds().toFloat().reduced(0.5f);
     const auto on = button.getToggleState();
-    g.setColour(on ? button.findColour(juce::TextButton::buttonOnColourId) : juce::Colour(over || down ? 0xff35404b : 0xff242d35));
+    const auto fill = on ? button.findColour(juce::TextButton::buttonOnColourId) : juce::Colour(over || down ? 0xff35404b : 0xff242d35);
+    g.setColour(fill.withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f));
     g.fillRoundedRectangle(area, 5);
     const bool focus = button.hasKeyboardFocus(false);
     g.setColour(focus ? ink : muted.withAlpha(0.35f));

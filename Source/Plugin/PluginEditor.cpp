@@ -17,13 +17,10 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     soloSelected.setTooltip("Audition the currently selected EQ band in isolation");
     soloSelected.setColour(juce::TextButton::buttonOnColourId, ui::copper);
     phaseComp.setComponentID("phaseComp");
-    phaseComp.setTooltip("Give the untouched channel of a Left, Right, Mid or Side cut the cut's passband phase");
     qMode.setComponentID("qMode"); qMode.addItemList(params::qModes, 1);
-    qMode.setTooltip("Bell width law. Symmetric matches boost and cut widths, Constant keeps Q fixed, Proportional narrows as gain grows.");
     dynThreshold.setComponentID("dynThreshold");
     dynThreshold.setSliderStyle(juce::Slider::LinearHorizontal); dynThreshold.setTextBoxStyle(juce::Slider::TextBoxRight, false, 62, 24);
     dynThreshold.setDoubleClickReturnValue(true, -24);
-    dynThreshold.setTooltip("Level at which dynamic bands start to act");
     scale.setComponentID("scale");
     scale.setSliderStyle(juce::Slider::LinearHorizontal); scale.setTextBoxStyle(juce::Slider::TextBoxRight, false, 52, 24);
     scale.setDoubleClickReturnValue(true, 100); scale.setTooltip("Global EQ gain scale (0% flat to 200% exaggerated)");
@@ -79,6 +76,21 @@ void TunerEditor::timerCallback() {
     rangeLabel.setText(params::frequencyText(hz), juce::dontSendNotification);
     octaveDown.setEnabled(ote::noteFrequency(midi - 12, processor.referencePitch()) >= 20);
     octaveUp.setEnabled(ote::noteFrequency(midi + 12, processor.referencePitch()) <= std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49));
+    const auto bands = processor.readSettings().bands;
+    const bool oneSidedCut = std::any_of(bands.begin(), bands.end(), [](const ote::BandSettings& b) {
+        return b.enabled && ote::isCut(b.shape) && b.placement != ote::Placement::Stereo;
+    });
+    const bool shapedBell = std::any_of(bands.begin(), bands.end(), [](const ote::BandSettings& b) {
+        return b.enabled && b.shape == ote::Shape::Bell && (std::abs(b.gainDb) > params::zeroDb || std::abs(b.dynamicDb) > params::zeroDb);
+    });
+    const bool dynamicBand = std::any_of(bands.begin(), bands.end(), [](const ote::BandSettings& b) {
+        return b.enabled && ote::usesGain(b.shape) && std::abs(b.dynamicDb) > params::zeroDb;
+    });
+    ui::showActive(phaseComp, "Give the untouched channel of a Left, Right, Mid or Side cut the cut's passband phase.",
+                   oneSidedCut ? "" : "Place a high-pass or low-pass band on Left, Right, Mid or Side to use it.");
+    ui::showActive(qMode, "Bell width law. Symmetric matches boost and cut widths, Constant keeps Q fixed, Proportional narrows as gain grows.",
+                   shapedBell ? "" : "Boost or cut a Bell band to use it.");
+    ui::showActive(dynThreshold, "Level at which dynamic bands start to act.", dynamicBand ? "" : "Set a band's dynamic range to use it.");
     meter = std::max(processor.peak.load(), meter * 0.88f);
     repaint();
 }

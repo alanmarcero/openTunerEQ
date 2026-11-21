@@ -354,9 +354,10 @@ int main(int argc, char** argv) {
     require(processor.state.getRawParameterValue("analyzerStyle")->load() == 2, "style selection reaches session state");
     visualizer->setToggleState(false, juce::sendNotificationSync);
     graph->refresh();
-    require(processor.state.getRawParameterValue("analyzerEnabled")->load() == 0 && !visualizerStyle->isEnabled(), "visualizer toggle disables analysis and style selection");
-    require(!visualizerSource->isEnabled(), "visualizer toggle disables audio source selection");
-    require(!freezeToggle->isEnabled() && !visualizerRelease->isEnabled() && !visualizerTilt->isEnabled(), "visualizer toggle disables analyzer-only controls");
+    require(processor.state.getRawParameterValue("analyzerEnabled")->load() == 0, "analyzer toggle turns analysis off");
+    require(visualizerStyle->isEnabled() && visualizerStyle->getAlpha() < 1 && visualizerSource->getAlpha() < 1 && freezeToggle->getAlpha() < 1
+            && visualizerRelease->getAlpha() < 1 && visualizerTilt->getAlpha() < 1, "analyzer off dims its controls and keeps them editable");
+    require(visualizerTilt->getTooltip().contains("Turn on the analyzer"), "an inactive control's tooltip says what turns it on");
     visualizer->setToggleState(true, juce::sendNotificationSync);
     visualizerStyle->setSelectedId(1, juce::sendNotificationSync);
     visualizerSource->setSelectedId(1, juce::sendNotificationSync);
@@ -392,6 +393,21 @@ int main(int argc, char** argv) {
     require(place != nullptr && place->getNumItems() == 5 && place->getSelectedId() == 1, "each band has a Stereo placement selector");
     place->setSelectedId(5, juce::sendNotificationSync);
     require(std::lround(processor.state.getRawParameterValue("band0.placement")->load()) == 4, "Side placement reaches the parameter");
+    {
+        TunerProcessor inactive;
+        inactive.setParameter("band1.shape", 5);
+        inactive.setParameter("band2.enabled", 0);
+        inactive.history().manager().clearUndoHistory();
+        std::unique_ptr<juce::AudioProcessorEditor> view(inactive.createEditor());
+        auto* notchGain = dynamic_cast<juce::Slider*>(find(find, *view, "band1.gain"));
+        auto* offFrequency = dynamic_cast<juce::Slider*>(find(find, *view, "band2.freq"));
+        require(notchGain != nullptr && notchGain->isEnabled() && notchGain->getAlpha() < 1 && notchGain->getTooltip().contains("Choose Bell"),
+                "gain on a notch is dimmed, editable and says what turns it on");
+        require(offFrequency != nullptr && offFrequency->getAlpha() < 1 && offFrequency->getTooltip().contains("Turn the band on"), "a disabled band dims its controls");
+        require(find(find, *view, "phaseComp")->getAlpha() < 1 && find(find, *view, "dynThreshold")->getAlpha() < 1,
+                "Phase Align and the dynamic threshold dim when no band uses them");
+        require(!find(find, *view, "undo")->isEnabled(), "Undo is disabled with an empty history");
+    }
     place->setSelectedId(1, juce::sendNotificationSync);
     editor.reset();
     require(listener.ends == 1, "closing editor ends active host gesture");
