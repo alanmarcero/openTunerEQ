@@ -4,7 +4,7 @@ namespace params {
 juce::String bandId(int band, const char* key) { return "band" + juce::String(band) + "." + key; }
 juce::String frequencyText(double hz) {
     if (hz < 999.5) return juce::String(juce::roundToInt(hz)) + " Hz";
-    return juce::String(hz / 1000.0, hz < 9995.0 ? 2 : 1) + " kHz";
+    return juce::String(hz / 1000.0, 2) + " kHz";
 }
 State::ParameterLayout layout() {
     State::ParameterLayout result;

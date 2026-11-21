@@ -67,7 +67,7 @@ void checkParameterText() {
     auto typed = [&](const char* id, const char* text) { const auto* p = processor.state.getParameter(id); return p->convertFrom0to1(p->getValueForText(text)); };
     require(shown("band0.gain", 3) == "+3.0 dB" && shown("band0.gain", -0.04f) == "0.0 dB" && shown("output", -6) == "-6.0 dB",
             "gain shows one decimal, a plus on boosts and no negative zero");
-    require(shown("band0.freq", 850) == "850 Hz" && shown("band0.freq", 6800) == "6.80 kHz" && shown("band0.freq", 16744) == "16.7 kHz",
+    require(shown("band0.freq", 850) == "850 Hz" && shown("band0.freq", 6800) == "6.80 kHz" && shown("band0.freq", 16744) == "16.74 kHz",
             "frequency shows Hz below 1 kHz and kHz above");
     require(std::abs(typed("band0.freq", "6.8k") - 6800) < 1 && std::abs(typed("band0.freq", "6.8 kHz") - 6800) < 1
             && std::abs(typed("band0.freq", "850 Hz") - 850) < 0.01f, "frequency accepts Hz, k and kHz");
