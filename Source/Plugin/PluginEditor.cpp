@@ -73,7 +73,7 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     reference.setTooltip("Tuning reference: the frequency of A4. Notes, snapping and cents follow it.");
     referenceAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "a4", reference);
     for (juce::Component* c : std::initializer_list<juce::Component*>{&graph, &piano, &suite, &qMode, &dynThreshold, &scale, &output, &reference, &selectedLabel, &rangeLabel, &octaveDown, &octaveUp}) content.addAndMakeVisible(c);
-    selectedLabel.setFont(ui::font(16, true)); selectedLabel.setColour(juce::Label::textColourId, ui::ink);
+    selectedLabel.setComponentID("selectedBand"); selectedLabel.setFont(ui::font(16, true)); selectedLabel.setColour(juce::Label::textColourId, ui::ink);
     rangeLabel.setFont(ui::font(12)); rangeLabel.setColour(juce::Label::textColourId, ui::muted);
     for (int i = 0; i < 5; ++i) {
         panels[static_cast<size_t>(i)] = std::make_unique<BandPanel>(p, i);
@@ -120,6 +120,8 @@ void TunerEditor::select(int band) {
 }
 // Panels, piano and labels refresh only after a parameter change.
 void TunerEditor::timerCallback() {
+    // A state load can change the selected band, and Solo follows that band.
+    if (const auto band = processor.activeSelectedBand.load(); band != selected) { select(band); return; }
     suite.refresh();
     graph.animate();
     const auto phase = processor.artworkPhase();

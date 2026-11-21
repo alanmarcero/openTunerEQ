@@ -25,6 +25,8 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     bool keyPressed(const juce::KeyPress&) override;
+    // Public so tests can run one tick.
+    void timerCallback() override;
 private:
     TunerProcessor& processor;
     ui::Theme theme;
@@ -52,7 +54,6 @@ private:
     std::vector<int> refreshMasks;
     std::atomic<int> pendingRefresh {0};
     void select(int band);
-    void timerCallback() override;
     void parameterValueChanged(int, float) override;
     void parameterGestureChanged(int, bool) override {}
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TunerEditor)

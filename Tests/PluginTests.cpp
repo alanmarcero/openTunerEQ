@@ -546,6 +546,15 @@ int main(int argc, char** argv) {
         TunerProcessor reloaded;
         reloaded.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
         require(reloaded.readSettings().soloBand == 2, "a saved session solos the same band");
+        soloing.activeSelectedBand = 3;
+        juce::MemoryBlock fourthBand;
+        soloing.getStateInformation(fourthBand);
+        soloing.activeSelectedBand = 0;
+        view.reset(soloing.createEditor());
+        soloing.setStateInformation(fourthBand.getData(), static_cast<int>(fourthBand.getSize()));
+        dynamic_cast<TunerEditor&>(*view).timerCallback();
+        require(dynamic_cast<juce::Label*>(find(find, *view, "selectedBand"))->getText().startsWith("Band 4") && soloing.readSettings().soloBand == 3,
+                "a state loaded while the editor is open moves the selection to the band that Solo plays");
     }
     {
         TunerProcessor sized;
