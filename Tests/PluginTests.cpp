@@ -74,6 +74,15 @@ void checkParameterText() {
     require(typed("band0.drive", "50") == 50 && typed("band0.drive", "50%") == 50 && shown("scale", 55) == "55%", "percent controls accept 50 and 50%");
     require(std::abs(typed("band0.gain", "+3.0 dB") - 3) < 0.01f && std::abs(typed("a4", "442.5 Hz") - 442.5f) < 0.01f, "dB and Hz suffixes are accepted");
 }
+void checkTitles(const juce::Component& parent) {
+    for (const auto* child : parent.getChildren()) {
+        const bool control = dynamic_cast<const juce::Button*>(child) != nullptr || dynamic_cast<const juce::Slider*>(child) != nullptr
+                          || dynamic_cast<const juce::ComboBox*>(child) != nullptr;
+        if (control && child->getTitle().isEmpty()) std::cerr << "untitled control " << child->getComponentID() << '\n';
+        require(!control || child->getTitle().isNotEmpty(), "every slider, combo box and button has a screen reader title");
+        if (!control) checkTitles(*child);
+    }
+}
 void checkButtonLayout(juce::Component& parent, int minimum) {
     // Labels and the resize corner may sit over other parts; every other clickable part needs its own space.
     auto takesSpace = [](const juce::Component& c) {
@@ -273,6 +282,7 @@ int main(int argc, char** argv) {
     std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
     require(editor != nullptr && editor->getWidth() >= 1000, "editor creation");
     checkButtonLayout(*editor, 40);
+    checkTitles(*editor);
     std::function<Faceplate*(juce::Component&)> faceplateIn = [&](juce::Component& root) -> Faceplate* {
         if (auto* match = dynamic_cast<Faceplate*>(&root)) return match;
         for (auto* child : root.getChildren()) if (auto* match = faceplateIn(*child)) return match;
@@ -318,6 +328,7 @@ int main(int argc, char** argv) {
     };
     auto* freq = dynamic_cast<juce::Slider*>(find(find, *editor, "band0.freq"));
     require(freq != nullptr, "frequency UI attached");
+    require(find(find, *editor, "copyAtoB")->getTitle() == "Copy A to B", "an abbreviated button has a spoken title");
     auto* tuning = dynamic_cast<juce::Slider*>(find(find, *editor, "a4"));
     require(tuning != nullptr && tuning->isDoubleClickReturnEnabled() && std::abs(tuning->getDoubleClickReturnValue() - 440) < 0.01,
             "A4 reference double-clicks back to 440 Hz");
@@ -449,6 +460,7 @@ int main(int argc, char** argv) {
         const auto rows = confirming.presets().filtered({});
         const auto doomed = std::find_if(rows.begin(), rows.end(), [](const suite::PresetStore::Item& item) { return item.name == "Doomed"; });
         dynamic_cast<juce::ListBox*>(find(find, *browser, "presetList"))->selectRow(static_cast<int>(std::distance(rows.begin(), doomed)));
+        checkTitles(*browser);
         auto* remove = dynamic_cast<juce::TextButton*>(find(find, *browser, "presetDelete"));
         remove->onClick();
         require(remove->getButtonText() == "Delete?" && folder.getChildFile("Doomed.xml").existsAsFile(), "the first Delete click only asks");

@@ -19,6 +19,8 @@ ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spect
     analyzerRelease.addItemList(params::analyzerReleases, 1);
     analyzerTilt.setComponentID("analyzerTilt");
     analyzerSource.setName("Source"); analyzerStyle.setName("Style"); analyzerTilt.setName("Tilt"); analyzerRelease.setName("Release");
+    analyzerToggle.setTitle("Analyzer"); freezeToggle.setTitle("Freeze"); analyzerSource.setTitle("Analyzer source");
+    analyzerStyle.setTitle("Analyzer style"); analyzerTilt.setTitle("Analyzer tilt"); analyzerRelease.setTitle("Analyzer release");
     analyzerTilt.addItemList({"0 dB/oct", "3 dB/oct", "4.5 dB/oct", "6 dB/oct"}, 1);
     addAndMakeVisible(analyzerToggle); addAndMakeVisible(freezeToggle); addAndMakeVisible(analyzerRelease);
     addAndMakeVisible(analyzerTilt); addAndMakeVisible(analyzerStyle); addAndMakeVisible(analyzerSource);

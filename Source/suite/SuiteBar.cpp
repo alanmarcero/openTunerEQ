@@ -17,6 +17,8 @@ public:
         addAndMakeVisible(search);
         addAndMakeVisible(list);
         for (auto* button : {&loadButton, &saveButton, &renameButton, &deleteButton}) addAndMakeVisible(button);
+        search.setTitle("Search presets"); list.setTitle("Presets");
+        loadButton.setTitle("Load preset"); saveButton.setTitle("Save preset"); renameButton.setTitle("Rename preset"); deleteButton.setTitle("Delete preset");
         loadButton.setComponentID("presetLoad");
         saveButton.setComponentID("presetSave");
         renameButton.setComponentID("presetRename");
@@ -162,6 +164,8 @@ SuiteBar::SuiteBar(TunerProcessor& p) : processor(p), history(p.history()), comp
     copyAtoB.setComponentID("copyAtoB"); copyBtoA.setComponentID("copyBtoA");
     presetButton.setComponentID("presets");
     previousButton.setComponentID("presetPrevious"); nextButton.setComponentID("presetNext");
+    undoButton.setTitle("Undo"); redoButton.setTitle("Redo"); slotA.setTitle("Slot A"); slotB.setTitle("Slot B");
+    copyAtoB.setTitle("Copy A to B"); copyBtoA.setTitle("Copy B to A"); previousButton.setTitle("Previous preset"); nextButton.setTitle("Next preset");
     previousButton.setTooltip("Previous preset"); nextButton.setTooltip("Next preset");
     previousButton.onClick = [this] { step(-1); };
     nextButton.onClick = [this] { step(1); };
@@ -202,6 +206,7 @@ void SuiteBar::refresh() {
     const auto name = processor.presetTitle();
     const auto shown = name.length() > 24 ? name.substring(0, 23) + "..." : name;
     presetButton.setButtonText(name.isEmpty() ? "Presets" : shown + (processor.presetEdited() ? " *" : ""));
+    presetButton.setTitle("Presets: " + presetButton.getButtonText());
 }
 // Steps through the browser's list order and wraps at the ends. An unknown name steps from either end.
 void SuiteBar::step(int direction) {

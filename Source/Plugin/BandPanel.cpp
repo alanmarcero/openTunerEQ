@@ -8,6 +8,10 @@ BandPanel::BandPanel(TunerProcessor& p, int band)
       level(p.bandLevels[static_cast<size_t>(band)], ui::bandColours[static_cast<size_t>(band)]) {
     auto id = [band](const char* key) { return params::bandId(band, key); };
     setName("Band " + juce::String(band + 1));
+    for (const auto& [control, title] : std::initializer_list<std::pair<juce::Component*, const char*>> {
+             {&enabled, "enabled"}, {&placement, "placement"}, {&note, "note"}, {&octave, "octave"}, {&frequency, "frequency"},
+             {&gain, "gain"}, {&q, "Q"}, {&shape, "shape"}, {&slope, "slope"}, {&dynamic, "dynamic range"}, {&drive, "drive"}})
+        control->setTitle(getName() + " " + title);
     enabled.setClickingTogglesState(true); enabled.setColour(juce::TextButton::buttonOnColourId, colour);
     enabled.setTooltip("Enable or bypass this EQ band");
     note.setComponentID(id("note"));

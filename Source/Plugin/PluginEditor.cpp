@@ -33,7 +33,11 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     addAndMakeVisible(content);
     for (juce::Component* c : std::initializer_list<juce::Component*>{&faceplate, &fork, &meter}) content.addAndMakeVisible(c);
     meter.setTooltip("Output level. Click to clear the clip light.");
-    for (auto* button : {&snap, &flats, &bypass, &autoGain, &soloSelected, &phaseComp}) { button->setClickingTogglesState(true); content.addAndMakeVisible(button); }
+    for (auto* button : {&snap, &flats, &bypass, &autoGain, &soloSelected, &phaseComp}) {
+        button->setClickingTogglesState(true); button->setTitle(button->getButtonText()); content.addAndMakeVisible(button);
+    }
+    octaveDown.setTitle("Tune down one octave"); octaveUp.setTitle("Tune up one octave"); qMode.setTitle("Bell Q law");
+    output.setTitle("Output gain"); reference.setTitle("A4 reference"); scale.setTitle("Scale"); dynThreshold.setTitle("Dynamic threshold");
     snap.setComponentID("snap"); flats.setComponentID("flats"); bypass.setComponentID("bypass");
     autoGain.setComponentID("autoGain"); soloSelected.setComponentID("soloSelected");
     snap.setTooltip("Snap every band to the nearest chromatic note of the A4 reference, including host automation");
