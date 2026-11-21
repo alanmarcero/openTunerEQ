@@ -21,7 +21,7 @@ struct BandSettings {
 bool usesGain(Shape shape) noexcept;
 bool isCut(Shape shape) noexcept;
 bool usesQ(const BandSettings& settings) noexcept;
-// The band boosts or cuts, statically or through its dynamic range. Drive acts only then.
+// The band boosts or cuts, directly or through its dynamic range.
 bool changesGain(const BandSettings&) noexcept;
 // Only a bell that changes gain reads the Q law.
 bool usesQLaw(const BandSettings&) noexcept;

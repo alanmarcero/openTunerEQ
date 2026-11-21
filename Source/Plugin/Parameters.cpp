@@ -6,14 +6,13 @@ juce::String frequencyText(double hz) {
     if (hz < 999.5) return juce::String(juce::roundToInt(hz)) + " Hz";
     return juce::String(hz / 1000.0, hz < 9995.0 ? 2 : 1) + " kHz";
 }
-juce::String decibelText(double decibels) {
-    const auto tenths = std::round(decibels * 10.0) / 10.0;
-    if (tenths > 0) return "+" + juce::String(tenths, 1) + " dB";
-    return juce::String(tenths == 0 ? 0.0 : tenths, 1) + " dB";
-}
 State::ParameterLayout layout() {
     State::ParameterLayout result;
-    const auto decibels = juce::AudioParameterFloatAttributes().withStringFromValueFunction([](float value, int) { return decibelText(value); });
+    const auto decibels = juce::AudioParameterFloatAttributes().withStringFromValueFunction([](float value, int) {
+        const auto tenths = std::round(value * 10.0) / 10.0;
+        if (tenths > 0) return "+" + juce::String(tenths, 1) + " dB";
+        return juce::String(tenths == 0 ? 0.0 : tenths, 1) + " dB";
+    });
     const auto percent = juce::AudioParameterFloatAttributes().withStringFromValueFunction([](float value, int) {
         return juce::String(juce::roundToInt(value)) + "%";
     });
@@ -53,7 +52,7 @@ State::ParameterLayout layout() {
     result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerStyle", 2), "Analyzer style", juce::StringArray {"Spectrum", "Bars", "Spectrogram"}, 0));
     result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerSource", 3), "Analyzer audio source", juce::StringArray {"Before EQ", "After EQ"}, 0));
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("analyzerFreeze", 3), "Analyzer freeze", false));
-    result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerRelease", 3), "Analyzer release", analyzerReleases, 1));
+    result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerRelease", 3), "Analyzer release", juce::StringArray {"Slow 24 dB/s", "Medium 48 dB/s", "Fast 96 dB/s"}, 1));
     result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID("analyzerTilt", 3), "Analyzer tilt", juce::StringArray {"0 dB/oct", "3 dB/oct", "4.5 dB/oct", "6 dB/oct"}, 2));
     result.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("scale", 4), "EQ gain scale", juce::NormalisableRange<float>(0.0f, 200.0f, 1.0f), 100.0f, percent));
     result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("autoGain", 4), "Auto-gain compensation", false));

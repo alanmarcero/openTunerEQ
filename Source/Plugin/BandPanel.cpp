@@ -5,7 +5,7 @@ double NoteSlider::snapValue(double attempted, DragMode) {
 }
 BandPanel::BandPanel(TunerProcessor& p, int band)
     : processor(p), index(band), colour(ui::bandColours[static_cast<size_t>(band)]), frequency(p),
-      level(p.bandLevels[static_cast<size_t>(band)], ui::bandColours[static_cast<size_t>(band)]) {
+      level(p.bandLevels[static_cast<size_t>(band)], colour) {
     auto id = [band](const char* key) { return params::bandId(band, key); };
     setName("Band " + juce::String(band + 1));
     for (const auto& [control, title] : std::initializer_list<std::pair<juce::Component*, const char*>> {

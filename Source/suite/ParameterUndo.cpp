@@ -68,7 +68,7 @@ void ParameterUndo::parameterGestureChanged(int index, bool starting) {
     if (!juce::isPositiveAndBelow(index, parameters.size())) return;
     auto* parameter = parameters[index];
     if (starting) {
-        // A gesture on the last edited parameter within 400 ms joins that step, so one scroll is one undo step.
+        // Edits of one parameter less than 400 ms apart share an undo step.
         const auto joins = parameter == lastEdited && juce::Time::getMillisecondCounterHiRes() - lastEditEnd < 400.0;
         if (openGestures == 0 && !joins) manager().beginNewTransaction("Edit");
         ++openGestures;

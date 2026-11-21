@@ -122,7 +122,8 @@ void TunerEditor::select(int band) {
 void TunerEditor::timerCallback() {
     suite.refresh();
     graph.animate();
-    if (forkPhase != processor.artworkPhase()) { forkPhase = processor.artworkPhase(); fork.repaint(); }
+    const auto phase = processor.artworkPhase();
+    if (forkPhase != phase) { forkPhase = phase; fork.repaint(); }
     auto changed = pendingRefresh.exchange(0);
     if (shownRate != processor.displaySampleRate()) changed = everything;
     if (changed == 0) return;

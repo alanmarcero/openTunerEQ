@@ -50,7 +50,7 @@ bool TunerProcessor::isBusesLayoutSupported(const BusesLayout& layout) const {
 }
 ote::Settings TunerProcessor::readSettings() const noexcept {
     auto safe = [](const std::atomic<float>* p, float fallback) { const auto v = p->load(); return std::isfinite(v) ? v : fallback; };
-    // The 0.1 dB grid stores 0 dB as about 4e-7. Rounding to the grid makes 0 exact for the engine and the UI.
+    // The 0.1 dB grid stores 0 dB as about 4e-7. Rounding makes 0 exact.
     auto tenths = [](double value) { return std::round(value * 10.0) / 10.0; };
     ote::Settings result;
     result.snap = snap->load() > 0.5f; result.bypass = bypass->load() > 0.5f; result.outputDb = safe(output, 0);

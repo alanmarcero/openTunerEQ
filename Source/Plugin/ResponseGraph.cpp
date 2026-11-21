@@ -6,22 +6,23 @@ const juce::Colour analyzerColour {0xffa3a9ad};
 }
 ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spectrum) {
     setName("Equalizer response graph");
+    auto choices = [&p](const char* id) { return dynamic_cast<juce::AudioParameterChoice&>(*p.state.getParameter(id)).choices; };
     analyzerToggle.setComponentID("analyzerEnabled");
     analyzerToggle.setClickingTogglesState(true);
     analyzerToggle.setTooltip("Show the track's live audio spectrum behind the EQ response. Turning this off stops analysis.");
     analyzerStyle.setComponentID("analyzerStyle");
-    analyzerStyle.addItemList({"Spectrum", "Bars", "Spectrogram"}, 1);
+    analyzerStyle.addItemList(choices("analyzerStyle"), 1);
     analyzerSource.setComponentID("analyzerSource");
-    analyzerSource.addItemList({"Before EQ", "After EQ"}, 1);
+    analyzerSource.addItemList(choices("analyzerSource"), 1);
     freezeToggle.setComponentID("analyzerFreeze");
     freezeToggle.setClickingTogglesState(true);
     analyzerRelease.setComponentID("analyzerRelease");
-    analyzerRelease.addItemList(params::analyzerReleases, 1);
+    analyzerRelease.addItemList(choices("analyzerRelease"), 1);
     analyzerTilt.setComponentID("analyzerTilt");
     analyzerSource.setName("Source"); analyzerStyle.setName("Style"); analyzerTilt.setName("Tilt"); analyzerRelease.setName("Release");
     analyzerSource.setTitle("Analyzer source");
     analyzerStyle.setTitle("Analyzer style"); analyzerTilt.setTitle("Analyzer tilt"); analyzerRelease.setTitle("Analyzer release");
-    analyzerTilt.addItemList({"0 dB/oct", "3 dB/oct", "4.5 dB/oct", "6 dB/oct"}, 1);
+    analyzerTilt.addItemList(choices("analyzerTilt"), 1);
     addAndMakeVisible(analyzerToggle); addAndMakeVisible(freezeToggle); addAndMakeVisible(analyzerRelease);
     addAndMakeVisible(analyzerTilt); addAndMakeVisible(analyzerStyle); addAndMakeVisible(analyzerSource);
     analyzerAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "analyzerEnabled", analyzerToggle);
@@ -80,14 +81,14 @@ void ResponseGraph::animate() {
     if (historyScrolls) {
         history.moveImageSection(0, 1, 0, 0, 512, 127);
         juce::Image::BitmapData pixels(history, juce::Image::BitmapData::writeOnly);
+        static const auto heat = [] {
+            juce::ColourGradient gradient(juce::Colour(0xff0e151b), 0, 0, ui::ink, 1, 0, false);
+            gradient.addColour(0.6, analyzerColour);
+            return gradient;
+        }();
         for (int x = 0; x < 512; ++x) {
             const auto db = analyzer.levelInRange(20 * std::pow(1000.0, x / 512.0), 20 * std::pow(1000.0, (x + 1) / 512.0), tiltDbPerOctave);
             const auto strength = juce::jlimit(0.0f, 1.0f, (db + 90) / 90);
-            static const auto heat = [] {
-                juce::ColourGradient gradient(juce::Colour(0xff0e151b), 0, 0, ui::ink, 1, 0, false);
-                gradient.addColour(0.6, analyzerColour);
-                return gradient;
-            }();
             pixels.setPixelColour(x, 0, heat.getColourAtPosition(strength));
         }
     }
@@ -200,22 +201,22 @@ void ResponseGraph::paint(juce::Graphics& g) {
     }
     for (int i = 0; i < 5; ++i) {
         const auto pt = pointFor(i); const auto color = ui::bandColours[static_cast<size_t>(i)];
-        const bool active = settings.bands[static_cast<size_t>(i)].enabled;
+        const auto& band = settings.bands[static_cast<size_t>(i)];
+        const bool active = band.enabled;
         if (i == selected) {
             g.setColour(color.withAlpha(0.13f)); g.drawLine(pt.x, p.getY(), pt.x, p.getBottom(), 1);
             g.fillEllipse(pt.x - 16, pt.y - 16, 32, 32);
             const auto hz = processor.bandFrequency(i);
-            const auto place = settings.bands[static_cast<size_t>(i)].placement;
+            const auto place = band.placement;
             auto caption = juce::String(ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats())) + "  " + params::frequencyText(hz);
-            if (ote::usesGain(settings.bands[static_cast<size_t>(i)].shape)) caption += "  " + processor.state.getParameter(params::bandId(i, "gain"))->getCurrentValueAsText();
-            if (ote::usesQ(settings.bands[static_cast<size_t>(i)])) caption += "  Q " + processor.state.getParameter(params::bandId(i, "q"))->getCurrentValueAsText();
+            if (ote::usesGain(band.shape)) caption += "  " + processor.state.getParameter(params::bandId(i, "gain"))->getCurrentValueAsText();
+            if (ote::usesQ(band)) caption += "  Q " + processor.state.getParameter(params::bandId(i, "q"))->getCurrentValueAsText();
             if (place != ote::Placement::Stereo) caption += "  " + params::placements[static_cast<int>(place)];
             const auto width = juce::GlyphArrangement::getStringWidth(ui::font(11, true), caption) + 16;
             auto label = juce::Rectangle<float>(width, 21.0f).withCentre({juce::jlimit(p.getX() + width / 2, p.getRight() - width / 2, pt.x), std::max(p.getY() + 10, pt.y - 27)});
             g.setColour(ui::background); g.fillRoundedRectangle(label, 4);
             ui::text(g, caption, label, 11, color, juce::Justification::centred, true);
         }
-        const auto& band = settings.bands[static_cast<size_t>(i)];
         if (band.enabled && ote::usesDynamics(band)) {
             // The line spans the dynamic range. The ring shows the live gain.
             g.setColour(color.withAlpha(0.45f)); g.drawLine(pt.x, pt.y, pt.x, yFor(band.gainDb + band.dynamicDb), 3);
@@ -226,7 +227,7 @@ void ResponseGraph::paint(juce::Graphics& g) {
         g.setColour(color); g.drawEllipse(pt.x - 9, pt.y - 9, 18, 18, 1.2f);
         ui::text(g, juce::String(i + 1), {pt.x - 9, pt.y - 9, 18, 18}, 11, active ? ui::background : color, juce::Justification::centred, true);
         const char* mark = nullptr;
-        switch (settings.bands[static_cast<size_t>(i)].placement) {
+        switch (band.placement) {
             case ote::Placement::Left: mark = "L"; break;
             case ote::Placement::Right: mark = "R"; break;
             case ote::Placement::Mid: mark = "M"; break;
@@ -273,8 +274,9 @@ int ResponseGraph::nodeAt(juce::Point<float> position) const {
     int nearest = -1;
     float distance = 28;
     for (int i = 0; i < 5; ++i) {
-        if (pointFor(i).getDistanceFrom(position) >= distance) continue;
-        distance = pointFor(i).getDistanceFrom(position);
+        const auto away = pointFor(i).getDistanceFrom(position);
+        if (away >= distance) continue;
+        distance = away;
         nearest = i;
     }
     return nearest;
@@ -372,9 +374,9 @@ void PianoStrip::paint(juce::Graphics& g) {
         g.setColour(ui::background); g.drawEllipse(dot, 1.2f);
     }
 }
+// A click maps to the keys as last painted.
 void PianoStrip::mouseDown(const juce::MouseEvent& e) {
-    const auto current = ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch());
-    if (first < 0 || current < first || current >= first + keyCount) first = juce::jlimit(12, 96, (current / 12 - 1) * 12);
+    if (first < 0) return;
     for (bool black : {true, false}) for (int i = 0; i < keyCount; ++i) {
         if (blackKey(i) != black || !keyBounds(i).contains(e.position)) continue;
         const auto midi = first + i; const auto hz = ote::noteFrequency(midi, processor.referencePitch());

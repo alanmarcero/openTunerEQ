@@ -6,7 +6,8 @@ void text(juce::Graphics& g, const juce::String& value, juce::Rectangle<float> b
     g.setColour(colour); g.setFont(font(size, bold)); g.drawText(value, bounds, alignment, false);
 }
 void showActive(juce::Component& control, const juce::String& tooltip, const juce::String& hint) {
-    const auto tip = hint.isEmpty() ? tooltip : tooltip + " " + hint;
+    auto tip = tooltip;
+    if (hint.isNotEmpty()) tip << " " << hint;
     control.setAlpha(hint.isEmpty() ? 1.0f : inactiveAlpha);
     if (auto* client = dynamic_cast<juce::SettableTooltipClient*>(&control)) client->setTooltip(tip);
     // A slider copies its tooltip to its text box only at creation.
@@ -47,12 +48,13 @@ void LevelMeter::paint(juce::Graphics& g) {
     }
     // -60 dBFS is the bottom. The top 3 px hold the clip light.
     auto top = [length](float gain) { return 3 + (length - 3) * (1 - juce::jlimit(0.0f, 1.0f, juce::Decibels::gainToDecibels(gain, -60.0f) / 60 + 1)); };
-    g.setColour(muted.withAlpha(0.2f)); g.fillRect(0.0f, 3.0f, breadth, length - 3);
+    g.setColour(muted.withAlpha(0.2f)); g.fillRect(0.0f, 0.0f, breadth, length);
+    g.setColour(warning);
+    if (clipped) g.fillRect(0.0f, 0.0f, breadth, 3.0f);
     g.setColour(colour); g.fillRect(0.0f, top(level), breadth, length - top(level));
     if (held > 0) g.fillRect(0.0f, top(held), breadth, 1.5f);
     g.setColour(ink.withAlpha(0.8f));
     if (marker) g.fillRect(0.0f, top(juce::Decibels::decibelsToGain(*marker)), breadth, 1.5f);
-    g.setColour(clipped ? warning : muted.withAlpha(0.2f)); g.fillRect(0.0f, 0.0f, breadth, 3.0f);
 }
 Theme::Theme() {
     setColour(juce::Slider::textBoxTextColourId, ink);
@@ -114,7 +116,7 @@ void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, floa
     if (style == juce::Slider::LinearBar) {
         const auto area = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y), static_cast<float>(w), static_cast<float>(h)).reduced(0.5f);
         juce::Path outline; outline.addRoundedRectangle(area, 4);
-        g.setColour(juce::Colour(0xff131a20)); g.fillPath(outline);
+        g.setColour(field); g.fillPath(outline);
         {
             // A range across zero fills from zero, so 0 dB draws empty.
             auto zero = area.getX();
@@ -153,7 +155,7 @@ void Theme::drawButtonText(juce::Graphics& g, juce::TextButton& button, bool, bo
 void Theme::drawComboBox(juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox& box) {
     const bool note = box.getComponentID().endsWith(".note");
     auto area = juce::Rectangle<float>(0.5f, 0.5f, w - 1.0f, h - 1.0f);
-    g.setColour(note ? juce::Colours::transparentBlack : juce::Colour(0xff131a20)); g.fillRoundedRectangle(area, 4);
+    g.setColour(note ? juce::Colours::transparentBlack : field); g.fillRoundedRectangle(area, 4);
     if (!note) { g.setColour(muted.withAlpha(box.isEnabled() ? 0.2f : 0.08f)); g.drawRoundedRectangle(area, 4, 1); }
     juce::Path arrow; const float xx = w - 15.0f, yy = h / 2.0f;
     arrow.startNewSubPath(xx - 3, yy - 2); arrow.lineTo(xx, yy + 1); arrow.lineTo(xx + 3, yy - 2);
