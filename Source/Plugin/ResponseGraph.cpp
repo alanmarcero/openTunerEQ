@@ -317,18 +317,24 @@ void ResponseGraph::endWheel() {
 namespace {
 bool blackKey(int midi) { const auto p = midi % 12; return p == 1 || p == 3 || p == 6 || p == 8 || p == 10; }
 }
-int PianoStrip::firstNote() const { return juce::jlimit(12, 120, (ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) / 12 - 1) * 12); }
+// The keyboard scrolls only when the selected band's note leaves it, so a clicked key stays under the cursor.
+void PianoStrip::followSelectedNote() {
+    const auto note = ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch());
+    if (first >= 0 && note >= first && note < first + keyCount) return;
+    first = juce::jlimit(12, 96, (note / 12 - 1) * 12);
+}
 juce::Rectangle<float> PianoStrip::keyBounds(int offset) const {
     int whites = 0;
     for (int i = 0; i < offset; ++i) if (!blackKey(i)) ++whites;
-    const auto width = getWidth() / 14.0f;
+    const auto width = getWidth() / (keyCount / 12 * 7.0f);
     if (blackKey(offset)) return {width * whites - width * 0.29f, 0, width * 0.58f, getHeight() * 0.60f};
     return {width * whites + 1, 0, width - 2, static_cast<float>(getHeight())};
 }
 void PianoStrip::paint(juce::Graphics& g) {
-    const auto first = firstNote(); const auto current = ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch());
+    followSelectedNote();
+    const auto current = ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch());
     const auto colour = ui::bandColours[static_cast<size_t>(selected)];
-    for (bool black : {false, true}) for (int i = 0; i < 24; ++i) {
+    for (bool black : {false, true}) for (int i = 0; i < keyCount; ++i) {
         if (blackKey(i) != black) continue;
         auto rect = keyBounds(i);
         const int midi = first + i; const auto hz = ote::noteFrequency(midi, processor.referencePitch());
@@ -337,14 +343,28 @@ void PianoStrip::paint(juce::Graphics& g) {
         if (!valid) g.setColour(black ? juce::Colour(0xff0f151a) : juce::Colour(0xff454c50));
         g.fillRoundedRectangle(rect, 3);
         g.setColour(juce::Colours::black.withAlpha(0.5f)); g.drawRoundedRectangle(rect, 3, 1);
-        ui::text(g, juce::String(ote::noteName(midi, processor.usesFlats())), rect.withTrimmedTop(rect.getHeight() - 19), black ? 9.0f : 11.0f,
+        ui::text(g, juce::String(ote::noteName(midi, processor.usesFlats())), rect.withTrimmedTop(rect.getHeight() - 19), black ? 8.0f : 10.0f,
                  black && midi != current ? ui::muted : ui::background, juce::Justification::centred, midi == current);
+    }
+    // A dot in each enabled band's colour marks its note. Bands on one note stack upward.
+    const auto settings = processor.readSettings();
+    std::array<int, 5> notes {};
+    for (size_t band = 0; band < notes.size(); ++band) notes[band] = ote::nearestNote(processor.bandFrequency(static_cast<int>(band)), processor.referencePitch());
+    for (size_t band = 0; band < notes.size(); ++band) {
+        const auto offset = notes[band] - first;
+        if (!settings.bands[band].enabled || offset < 0 || offset >= keyCount) continue;
+        const auto below = std::count_if(notes.begin(), notes.begin() + static_cast<long>(band), [&](int note) { return note == notes[band]; });
+        const auto key = keyBounds(offset);
+        const auto dot = juce::Rectangle<float>(9, 9).withCentre({key.getCentreX(), key.getBottom() - 27 - static_cast<float>(below) * 10});
+        g.setColour(ui::bandColours[band]); g.fillEllipse(dot);
+        g.setColour(ui::background); g.drawEllipse(dot, 1.2f);
     }
 }
 void PianoStrip::mouseDown(const juce::MouseEvent& e) {
-    for (bool black : {true, false}) for (int i = 0; i < 24; ++i) {
+    followSelectedNote();
+    for (bool black : {true, false}) for (int i = 0; i < keyCount; ++i) {
         if (blackKey(i) != black || !keyBounds(i).contains(e.position)) continue;
-        const auto midi = firstNote() + i; const auto hz = ote::noteFrequency(midi, processor.referencePitch());
+        const auto midi = first + i; const auto hz = ote::noteFrequency(midi, processor.referencePitch());
         if (hz >= 20 && hz <= std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49) && onNote) onNote(midi);
         return;
     }

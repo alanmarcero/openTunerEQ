@@ -57,8 +57,9 @@ public:
     void setSelected(int band) { selected = band; repaint(); }
     std::function<void(int)> onNote;
 private:
+    static constexpr int keyCount = 48;
     TunerProcessor& processor;
-    int selected = 0;
-    int firstNote() const;
+    int selected = 0, first = -1;
+    void followSelectedNote();
     juce::Rectangle<float> keyBounds(int offset) const;
 };

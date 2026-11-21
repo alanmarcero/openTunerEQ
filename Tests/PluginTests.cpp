@@ -332,8 +332,15 @@ int main(int argc, char** argv) {
     auto* piano = dynamic_cast<PianoStrip*>(findType(findType, *editor, true));
     require(piano != nullptr, "piano present");
     processor.setParameter("band0.freq", 16744.036f);
-    piano->mouseDown(mouseAt(*piano, {piano->getWidth() * 0.5f + 5, piano->getHeight() - 8.0f}));
+    // C10 needs the top octaves, so the keyboard shows C7 to B10 and C10 is the 22nd white key.
+    piano->mouseDown(mouseAt(*piano, {piano->getWidth() * 21.5f / 28, piano->getHeight() - 8.0f}));
     require(ote::nearestNote(processor.bandFrequency(0), processor.referencePitch()) == 132, "piano follows octave 10");
+    processor.setParameter("band0.freq", 65.4064f);
+    piano->mouseDown(mouseAt(*piano, {piano->getWidth() * 1.5f / 28, piano->getHeight() - 8.0f}));
+    const auto firstClick = ote::nearestNote(processor.bandFrequency(0), processor.referencePitch());
+    piano->mouseDown(mouseAt(*piano, {piano->getWidth() * 1.5f / 28, piano->getHeight() - 8.0f}));
+    require(firstClick == 26 && ote::nearestNote(processor.bandFrequency(0), processor.referencePitch()) == 26,
+            "a key clicked in the lowest octave stays under the cursor");
     processor.setParameter("band0.freq", 440); processor.setParameter("band0.gain", 0);
     auto* graph = dynamic_cast<ResponseGraph*>(findType(findType, *editor, false));
     require(graph != nullptr, "graph present");

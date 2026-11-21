@@ -118,7 +118,7 @@ void TunerEditor::resized() {
     selectedLabel.setBounds(25, 760, 205, 20); rangeLabel.setBounds(25, 780, 205, 16);
     octaveDown.setBounds(25, 800, 90, 40); octaveUp.setBounds(123, 800, 90, 40);
     reference.setBounds(50, 846, 182, 24);
-    piano.setBounds(240, 764, 896, 88);
+    piano.setBounds(240, 760, 896, 110);
 }
 bool TunerEditor::keyPressed(const juce::KeyPress& key) {
     const auto command = juce::ModifierKeys::commandModifier;
