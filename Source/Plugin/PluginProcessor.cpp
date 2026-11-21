@@ -97,7 +97,7 @@ void TunerProcessor::process(juce::AudioBuffer<float>& buffer, bool forceBypass)
     }
     float level = 0;
     for (int i = 0; i < buffer.getNumChannels(); ++i) level = std::max(level, buffer.getMagnitude(i, 0, buffer.getNumSamples()));
-    peak.store(level);
+    raise(peak, level);
 }
 void TunerProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) { process(buffer, false); }
 void TunerProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) { process(buffer, true); }

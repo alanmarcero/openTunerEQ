@@ -16,6 +16,7 @@ struct BandSettings {
     bool compensatePhase = false;
     double dynamicDb = 0.0;
     double drive = 0.0;
+    bool operator==(const BandSettings&) const = default;
 };
 bool usesGain(Shape shape) noexcept;
 bool isCut(Shape shape) noexcept;

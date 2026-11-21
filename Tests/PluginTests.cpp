@@ -273,6 +273,12 @@ int main(int argc, char** argv) {
     std::unique_ptr<juce::AudioProcessorEditor> editor(processor.createEditor());
     require(editor != nullptr && editor->getWidth() >= 1000, "editor creation");
     checkButtonLayout(*editor, 40);
+    std::function<Faceplate*(juce::Component&)> faceplateIn = [&](juce::Component& root) -> Faceplate* {
+        if (auto* match = dynamic_cast<Faceplate*>(&root)) return match;
+        for (auto* child : root.getChildren()) if (auto* match = faceplateIn(*child)) return match;
+        return nullptr;
+    };
+    require(faceplateIn(*editor) != nullptr && faceplateIn(*editor)->getCachedComponentImage() != nullptr, "the editor caches its background");
     struct ArtworkHost : juce::AudioPlayHead {
         PositionInfo position;
         juce::Optional<PositionInfo> getPosition() const override { return position; }
@@ -638,7 +644,7 @@ int main(int argc, char** argv) {
                     audio.setSample(0, i, static_cast<float>(value)); audio.setSample(1, i, static_cast<float>(value));
                 }
                 processor.processBlock(audio, midi);
-                if (block % 4 == 0) { juce::Thread::sleep(42); graph->refresh(); }
+                if (block % 4 == 0) { juce::Thread::sleep(42); graph->animate(); }
             }
             const auto snapshot = editor->createComponentSnapshot(editor->getLocalBounds(), true, 1.5f);
             auto file = juce::File::getCurrentWorkingDirectory().getChildFile(argv[1]);

@@ -15,4 +15,5 @@ inline const juce::StringArray qModes {"Symmetric Q", "Constant Q", "Proportiona
 inline const juce::StringArray analyzerReleases {"Slow 24 dB/s", "Medium 48 dB/s", "Fast 96 dB/s"};
 // A 0.1 dB step stores 0 dB as about 4e-7, so gains below this count as zero.
 inline constexpr double zeroDb = 1.0e-3;
+inline bool usesDynamics(const ote::BandSettings& band) { return band.enabled && ote::usesGain(band.shape) && std::abs(band.dynamicDb) > zeroDb; }
 }

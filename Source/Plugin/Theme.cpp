@@ -13,7 +13,10 @@ void showActive(juce::Component& control, const juce::String& tooltip, const juc
     for (auto* child : control.getChildren())
         if (auto* client = dynamic_cast<juce::SettableTooltipClient*>(child)) client->setTooltip(tip);
 }
-LevelMeter::LevelMeter(std::atomic<float>& peak, juce::Colour meterColour) : source(peak), colour(meterColour) { startTimerHz(24); }
+LevelMeter::LevelMeter(std::atomic<float>& peak, juce::Colour meterColour) : source(peak), colour(meterColour) {
+    timerCallback();
+    startTimerHz(24);
+}
 void LevelMeter::setMarker(float decibels) {
     if (marker == decibels) return;
     marker = decibels;

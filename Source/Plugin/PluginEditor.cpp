@@ -1,11 +1,38 @@
 #include "PluginEditor.h"
 #include "Notes.h"
 #include <BinaryData.h>
-TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor(p), graph(p), piano(p), suite(p) {
+Faceplate::Faceplate() : image(juce::ImageCache::getFromMemory(BinaryData::analogcyberfaceplate_png, BinaryData::analogcyberfaceplate_pngSize)) {
+    setOpaque(true); setBufferedToImage(true); setInterceptsMouseClicks(false, false);
+}
+void Faceplate::paint(juce::Graphics& g) {
+    g.fillAll(ui::background);
+    g.setOpacity(0.9f); g.drawImage(image, getLocalBounds().toFloat(), juce::RectanglePlacement::fillDestination); g.setOpacity(1);
+    g.setColour(ui::background.withAlpha(0.88f)); g.fillRect(getLocalBounds());
+    g.setColour(ui::copper.withAlpha(0.35f)); g.drawHorizontalLine(64, 24, 1136);
+    g.setColour(ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(8, 8, 1144, 884, 8, 1);
+    ui::text(g, "openTunerEQ", {84, 8, 250, 28}, 26, ui::ink, juce::Justification::centredLeft, true);
+    ui::text(g, "VICANEK MATCHED ANALOG FILTER ENGINE", {86, 36, 250, 16}, 11, ui::copper);
+    ui::text(g, "Scale", {742, 22, 36, 24}, 11, ui::muted);
+    ui::text(g, "Out", {900, 22, 42, 24}, 11, ui::muted, juce::Justification::centredRight);
+    ui::text(g, "Dynamic threshold", {984, 70, 152, 14}, 11, ui::muted);
+    ui::text(g, "Alan Marcero", {25, 876, 220, 15}, 10, ui::muted);
+    ui::text(g, "A4", {25, 846, 24, 24}, 12, ui::muted, juce::Justification::centredLeft, true);
+    ui::text(g, "12-tone equal temperament   /   v" JucePlugin_VersionString, {660, 876, 476, 15}, 10, ui::muted, juce::Justification::centredRight);
+}
+TuningFork::TuningFork(TunerProcessor& p) : processor(p), drawable(juce::Drawable::createFromImageData(BinaryData::tuningfork_svg, BinaryData::tuningfork_svgSize)) {
+    setInterceptsMouseClicks(false, false);
+}
+void TuningFork::paint(juce::Graphics& g) {
+    if (drawable == nullptr) return;
+    const float decay = 1.0f - processor.artworkPhase();
+    const float size = 46.0f + 8.0f * decay * decay;
+    drawable->drawWithin(g, juce::Rectangle<float>(size, size).withCentre(getLocalBounds().toFloat().getCentre()), juce::RectanglePlacement::centred, 0.78f + 0.22f * decay);
+}
+TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor(p), fork(p), meter(p.peak, juce::Colour(0xff48f0c8)), graph(p), piano(p), suite(p) {
     setLookAndFeel(&theme);
-    faceplate = juce::ImageCache::getFromMemory(BinaryData::analogcyberfaceplate_png, BinaryData::analogcyberfaceplate_pngSize);
-    tuningFork = juce::Drawable::createFromImageData(BinaryData::tuningfork_svg, BinaryData::tuningfork_svgSize);
     addAndMakeVisible(content);
+    for (juce::Component* c : std::initializer_list<juce::Component*>{&faceplate, &fork, &meter}) content.addAndMakeVisible(c);
+    meter.setTooltip("Output level. Click to clear the clip light.");
     for (auto* button : {&snap, &flats, &bypass, &autoGain, &soloSelected, &phaseComp}) { button->setClickingTogglesState(true); content.addAndMakeVisible(button); }
     snap.setComponentID("snap"); flats.setComponentID("flats"); bypass.setComponentID("bypass");
     autoGain.setComponentID("autoGain"); soloSelected.setComponentID("soloSelected");
@@ -59,19 +86,35 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     if (auto* constrainer = getConstrainer()) constrainer->setFixedAspectRatio(1160.0 / 900.0);
     setSize(width, juce::roundToInt(width * 900.0 / 1160.0));
     setWantsKeyboardFocus(true);
-    select(processor.activeSelectedBand.load()); timerCallback(); startTimerHz(24);
+    for (auto* parameter : processor.getParameters()) parameter->addListener(this);
+    select(processor.activeSelectedBand.load()); startTimerHz(24);
 }
-TunerEditor::~TunerEditor() { stopTimer(); setLookAndFeel(nullptr); }
+TunerEditor::~TunerEditor() {
+    for (auto* parameter : processor.getParameters()) parameter->removeListener(this);
+    stopTimer(); setLookAndFeel(nullptr);
+}
+// Host automation can call this on the audio thread, so it only raises a flag for the timer.
+void TunerEditor::parameterValueChanged(int, float) { parametersChanged = true; }
 void TunerEditor::select(int band) {
     selected = band;
     processor.activeSelectedBand.store(band);
     graph.setSelected(band); piano.setSelected(band);
     for (int i = 0; i < 5; ++i) panels[static_cast<size_t>(i)]->setSelected(i == band);
-    timerCallback();
+    refresh();
 }
+// Only the fork, the meters and a moving graph repaint every tick. The rest waits for a parameter change.
 void TunerEditor::timerCallback() {
+    if (parametersChanged.exchange(false) || shownRate != processor.displaySampleRate()) refresh();
+    suite.refresh();
+    graph.animate();
+    if (forkPhase == processor.artworkPhase()) return;
+    forkPhase = processor.artworkPhase();
+    fork.repaint();
+}
+void TunerEditor::refresh() {
+    shownRate = processor.displaySampleRate();
     for (auto& panel : panels) panel->refresh();
-    graph.refresh(); piano.repaint(); suite.refresh();
+    graph.refresh(); piano.repaint();
     const auto hz = processor.bandFrequency(selected); const auto midi = ote::nearestNote(hz, processor.referencePitch());
     selectedLabel.setText("Band " + juce::String(selected + 1) + "  /  " + juce::String(ote::noteName(midi, processor.usesFlats())), juce::dontSendNotification);
     selectedLabel.setColour(juce::Label::textColourId, ui::bandColours[static_cast<size_t>(selected)]);
@@ -87,9 +130,7 @@ void TunerEditor::timerCallback() {
     const bool shapedBell = std::any_of(bands.begin(), bands.end(), [](const ote::BandSettings& b) {
         return b.enabled && b.shape == ote::Shape::Bell && (std::abs(b.gainDb) > params::zeroDb || std::abs(b.dynamicDb) > params::zeroDb);
     });
-    const bool dynamicBand = std::any_of(bands.begin(), bands.end(), [](const ote::BandSettings& b) {
-        return b.enabled && ote::usesGain(b.shape) && std::abs(b.dynamicDb) > params::zeroDb;
-    });
+    const bool dynamicBand = std::any_of(bands.begin(), bands.end(), params::usesDynamics);
     ui::showActive(phaseComp, "Give the untouched channel of a Left, Right, Mid or Side cut the cut's passband phase.",
                    oneSidedCut ? "" : "Place a high-pass or low-pass band on Left, Right, Mid or Side to use it.");
     ui::showActive(qMode, "Bell width law. Symmetric matches boost and cut widths, Constant keeps Q fixed, Proportional narrows as gain grows.",
@@ -97,14 +138,13 @@ void TunerEditor::timerCallback() {
     ui::showActive(dynThreshold, "Level at which dynamic bands start to act.", dynamicBand ? "" : "Set a band's dynamic range to use it.");
     ui::showActive(autoGain, "Match the output's K-weighted loudness to the input so EQ moves are heard at equal level.",
                    settings.soloBand < 0 ? "" : "Solo Band turns it off. Turn off Solo Band to use it.");
-    meter = std::max(processor.peak.load(), meter * 0.88f);
-    repaint();
 }
 void TunerEditor::resized() {
     const auto factor = std::min(getWidth() / 1160.0f, getHeight() / 900.0f);
     content.setBounds(0, 0, 1160, 900);
     content.setTransform(juce::AffineTransform::scale(factor).translated((getWidth() - 1160 * factor) / 2, (getHeight() - 900 * factor) / 2));
     processor.editorWidth = getWidth();
+    faceplate.setBounds(0, 0, 1160, 900); fork.setBounds(20, 8, 56, 56); meter.setBounds(944, 56, 122, 5);
     snap.setBounds(348, 16, 114, 40); flats.setBounds(468, 16, 86, 40);
     soloSelected.setBounds(560, 16, 86, 40); autoGain.setBounds(652, 16, 86, 40);
     scale.setBounds(778, 18, 116, 36);
@@ -130,29 +170,4 @@ bool TunerEditor::keyPressed(const juce::KeyPress& key) {
     }
     return false;
 }
-void TunerEditor::paint(juce::Graphics& g) {
-    g.fillAll(ui::background);
-    g.addTransform(content.getTransform());
-    g.setOpacity(0.9f); g.drawImage(faceplate, juce::Rectangle<float>(0, 0, 1160, 900), juce::RectanglePlacement::fillDestination); g.setOpacity(1);
-    g.setColour(ui::background.withAlpha(0.88f)); g.fillRect(0, 0, 1160, 900);
-    g.setColour(ui::copper.withAlpha(0.35f)); g.drawHorizontalLine(64, 24, 1136);
-    g.setColour(ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(8, 8, 1144, 884, 8, 1);
-    g.setOpacity(1.0f);
-    if (tuningFork) {
-        const float decay = 1.0f - processor.artworkPhase();
-        const float size = 46.0f + 8.0f * decay * decay;
-        const auto bounds = juce::Rectangle<float>(size, size).withCentre({48.0f, 36.0f});
-        tuningFork->drawWithin(g, bounds, juce::RectanglePlacement::centred, 0.78f + 0.22f * decay);
-    }
-    ui::text(g, "openTunerEQ", {84, 8, 250, 28}, 26, ui::ink, juce::Justification::centredLeft, true);
-    ui::text(g, "VICANEK MATCHED ANALOG FILTER ENGINE", {86, 36, 250, 16}, 11, ui::copper);
-    ui::text(g, "Scale", {742, 22, 36, 24}, 11, ui::muted);
-    ui::text(g, "Out", {900, 22, 42, 24}, 11, ui::muted, juce::Justification::centredRight);
-    ui::text(g, "Dynamic threshold", {984, 70, 152, 14}, 11, ui::muted);
-    const auto db = juce::Decibels::gainToDecibels(meter, -60.0f);
-    g.setColour(ui::muted.withAlpha(0.2f)); g.fillRoundedRectangle(944, 56, 122, 5, 2.5f);
-    g.setColour(db > 0 ? ui::warning : juce::Colour(0xff48f0c8)); g.fillRoundedRectangle(944, 56, juce::jlimit(0.0f, 122.0f, (db + 60) / 60 * 122), 5, 2.5f);
-    ui::text(g, "Alan Marcero", {25, 876, 220, 15}, 10, ui::muted);
-    ui::text(g, "A4", {25, 846, 24, 24}, 12, ui::muted, juce::Justification::centredLeft, true);
-    ui::text(g, "12-tone equal temperament   /   v" JucePlugin_VersionString, {660, 876, 476, 15}, 10, ui::muted, juce::Justification::centredRight);
-}
+void TunerEditor::paint(juce::Graphics& g) { g.fillAll(ui::background); }

@@ -28,10 +28,11 @@ ResponseGraph::ResponseGraph(TunerProcessor& p) : processor(p), analyzer(p.spect
     sourceAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, "analyzerSource", analyzerSource);
     releaseAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, "analyzerRelease", analyzerRelease);
     tiltAttachment = std::make_unique<params::State::ComboBoxAttachment>(p.state, "analyzerTilt", analyzerTilt);
-    refresh();
+    refresh(); animate();
 }
 ResponseGraph::~ResponseGraph() { processor.spectrum.setActive(false); endGesture(); endWheel(); }
 void ResponseGraph::resized() {
+    curveRate = 0;
     auto row = getLocalBounds().removeFromTop(40).withTrimmedRight(8);
     freezeToggle.setBounds(row.removeFromRight(64)); row.removeFromRight(6);
     analyzerRelease.setBounds(row.removeFromRight(132)); row.removeFromRight(6);
@@ -61,13 +62,16 @@ void ResponseGraph::refresh() {
     ui::showActive(analyzerRelease, "Peak decay speed in dB per second.", analyzerOff);
     ui::showActive(analyzerTilt, "Tilt the spectrum around 1 kHz to make low-frequency balance easier to read.", analyzerOff);
     processor.spectrum.setActive(enabled);
-    if (enabled) analyzer.update(juce::Time::getMillisecondCounterHiRes() * 0.001, afterEQ);
-    else {
+    if (!enabled) {
         SpectrumCapture::Packet discarded;
         for (int i = 0; i < 256 && processor.spectrum.pop(discarded); ++i) {}
         analyzer.reset();
     }
-    if (enabled && style == 2 && !analyzerFrozen) {
+    repaint();
+}
+void ResponseGraph::animate() {
+    if (analyzerOn) analyzer.update(juce::Time::getMillisecondCounterHiRes() * 0.001, afterEQ);
+    if (analyzerOn && style == 2 && !analyzerFrozen) {
         history.moveImageSection(0, 1, 0, 0, 512, 127);
         juce::Image::BitmapData pixels(history, juce::Image::BitmapData::writeOnly);
         for (int x = 0; x < 512; ++x) {
@@ -81,7 +85,8 @@ void ResponseGraph::refresh() {
             pixels.setPixelColour(x, 0, heat.getColourAtPosition(strength));
         }
     }
-    repaint();
+    const auto bands = processor.readSettings().bands;
+    if (analyzerOn || std::any_of(bands.begin(), bands.end(), params::usesDynamics)) repaint();
 }
 juce::Rectangle<float> ResponseGraph::plot() const { return getLocalBounds().toFloat().withTrimmedLeft(48).withTrimmedRight(48).withTrimmedTop(44).withTrimmedBottom(32); }
 double ResponseGraph::frequencyAt(float x) const { const auto p = plot(); return 20 * std::pow(1000.0, juce::jlimit(0.0f, 1.0f, (x - p.getX()) / p.getWidth())); }
@@ -125,16 +130,17 @@ void ResponseGraph::paint(juce::Graphics& g) {
         settings.bands[i].frequency = processor.bandFrequency(static_cast<int>(i));
     }
     const auto rate = processor.displaySampleRate();
-    {
-        juce::Graphics::ScopedSaveState save(g); g.reduceClipRegion(p.toNearestInt());
+    // The curves take five filter designs and about 2,500 magnitudes, so they rebuild only when a setting changes.
+    if (settings != curveSettings || rate != curveRate) {
+        curveSettings = settings; curveRate = rate;
+        for (auto& curve : curves) curve.clear();
+        total.clear();
         std::array<ote::FilterDesign, 5> designs{};
         for (size_t i = 0; i < 5; ++i) {
             if (settings.bands[i].enabled) {
                 designs[i] = ote::designFilter(settings.bands[i], rate);
             }
         }
-        std::array<juce::Path, 5> curves;
-        juce::Path total;
         const int steps = static_cast<int>(p.getWidth() / 2);
         for (int step = 0; step <= steps; ++step) {
             const auto x = p.getX() + p.getWidth() * step / steps;
@@ -160,18 +166,21 @@ void ResponseGraph::paint(juce::Graphics& g) {
             if (settings.bypass) sum = 0;
             if (step == 0) total.startNewSubPath(x, yFor(sum)); else total.lineTo(x, yFor(sum));
         }
-        auto fill = total; fill.lineTo(p.getRight(), yFor(0)); fill.lineTo(p.getX(), yFor(0)); fill.closeSubPath();
-        g.setColour(ui::copper.withAlpha(0.07f)); g.fillPath(fill);
+        totalFill = total; totalFill.lineTo(p.getRight(), yFor(0)); totalFill.lineTo(p.getX(), yFor(0)); totalFill.closeSubPath();
         const float dashPattern[] = {5.0f, 4.0f};
         for (size_t i = 0; i < 5; ++i) {
+            if (settings.bands[i].placement == ote::Placement::Stereo) continue;
+            juce::Path dashed;
+            juce::PathStrokeType(1.15f).createDashedStroke(dashed, curves[i], dashPattern, 2);
+            curves[i] = dashed;
+        }
+    }
+    {
+        juce::Graphics::ScopedSaveState save(g); g.reduceClipRegion(p.toNearestInt());
+        g.setColour(ui::copper.withAlpha(0.07f)); g.fillPath(totalFill);
+        for (size_t i = 0; i < 5; ++i) {
             g.setColour(ui::bandColours[i].withAlpha(static_cast<int>(i) == selected ? 0.75f : 0.28f));
-            if (settings.bands[i].placement == ote::Placement::Stereo) {
-                g.strokePath(curves[i], juce::PathStrokeType(1.1f));
-            } else {
-                juce::Path dashed;
-                juce::PathStrokeType(1.15f).createDashedStroke(dashed, curves[i], dashPattern, 2);
-                g.strokePath(dashed, juce::PathStrokeType(1.15f));
-            }
+            g.strokePath(curves[i], juce::PathStrokeType(settings.bands[i].placement == ote::Placement::Stereo ? 1.1f : 1.15f));
         }
         g.setColour(ui::ink.withAlpha(0.9f)); g.strokePath(total, juce::PathStrokeType(2.0f));
     }
@@ -193,7 +202,7 @@ void ResponseGraph::paint(juce::Graphics& g) {
             ui::text(g, caption, label, 11, color, juce::Justification::centred, true);
         }
         const auto& band = settings.bands[static_cast<size_t>(i)];
-        if (active && ote::usesGain(band.shape) && std::abs(band.dynamicDb) > params::zeroDb) {
+        if (params::usesDynamics(band)) {
             // The line spans the dynamic range; the ring shows the gain the band adds now.
             g.setColour(color.withAlpha(0.45f)); g.drawLine(pt.x, pt.y, pt.x, yFor(band.gainDb + band.dynamicDb), 3);
             const auto live = yFor(band.gainDb + processor.dynamicGains[static_cast<size_t>(i)].load());

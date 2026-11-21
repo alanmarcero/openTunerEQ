@@ -14,6 +14,7 @@ struct Settings {
     bool phaseCompensation = false;
     double dynamicThresholdDb = -24;
     int soloBand = -1;
+    bool operator==(const Settings&) const = default;
 };
 double estimateTailSeconds(const Settings&, double sampleRate) noexcept;
 // The band as the engine plays it: Solo plays the soloed band as a band pass and mutes the others.

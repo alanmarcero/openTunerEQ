@@ -7,7 +7,10 @@ public:
     ~ResponseGraph() override;
     void paint(juce::Graphics&) override;
     void resized() override;
+    // Parameters changed: re-read the analyzer settings and control states.
     void refresh();
+    // A timer tick: advance the analyzer, and repaint while the analyzer or a dynamic band moves.
+    void animate();
     void mouseMove(const juce::MouseEvent&) override;
     void mouseExit(const juce::MouseEvent&) override;
     void mouseDown(const juce::MouseEvent&) override;
@@ -27,6 +30,10 @@ private:
     std::unique_ptr<params::State::ButtonAttachment> freezeAttachment;
     std::unique_ptr<params::State::ComboBoxAttachment> styleAttachment, sourceAttachment, releaseAttachment, tiltAttachment;
     juce::Image history {juce::Image::RGB, 512, 128, true};
+    std::array<juce::Path, 5> curves;
+    juce::Path total, totalFill;
+    ote::Settings curveSettings;
+    double curveRate = 0;
     bool analyzerOn = true;
     bool afterEQ = false;
     bool analyzerFrozen = false;
