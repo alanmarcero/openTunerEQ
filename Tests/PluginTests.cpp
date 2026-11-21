@@ -431,7 +431,6 @@ int main(int argc, char** argv) {
     require(place != nullptr && place->getNumItems() == 5 && place->getSelectedId() == 1, "each band has a Stereo placement selector");
     place->setSelectedId(5, juce::sendNotificationSync);
     require(std::lround(processor.state.getRawParameterValue("band0.placement")->load()) == 4, "Side placement reaches the parameter");
-    std::cout << "[stage] inactive\n" << std::flush;
     {
         TunerProcessor inactive;
         inactive.setParameter("band1.shape", 5);
@@ -451,7 +450,6 @@ int main(int argc, char** argv) {
     editor.reset();
     require(listener.ends == 1, "closing editor ends active host gesture");
     frequencyParameter->removeListener(&listener);
-    std::cout << "[stage] confirming\n" << std::flush;
     {
         auto folder = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("openTunerEQ-confirm-test");
         folder.deleteRecursively();
@@ -472,7 +470,6 @@ int main(int argc, char** argv) {
         browser.reset();
         folder.deleteRecursively();
     }
-    std::cout << "[stage] named\n" << std::flush;
     {
         TunerProcessor named;
         std::unique_ptr<juce::AudioProcessorEditor> view(named.createEditor());
@@ -501,8 +498,8 @@ int main(int argc, char** argv) {
         require(dynamic_cast<juce::TextButton*>(find(find, *view, "presets"))->getButtonText().endsWith(" *"), "the session keeps the name and the edit mark");
         reopened.loadPreset(order[0]);
         require(!reopened.presetEdited(), "loading a preset clears the edit mark");
+        view.reset();
     }
-    std::cout << "[stage] dynamicEq\n" << std::flush;
     {
         TunerProcessor dynamicEq;
         dynamicEq.setParameter("band0.dyn", 12);
@@ -530,7 +527,6 @@ int main(int argc, char** argv) {
         meter.mouseDown(mouseAt(meter, {4, 20}));
         require(meter.createComponentSnapshot(meter.getLocalBounds()).getPixelAt(4, 1) != ui::warning, "a click clears the clip light");
     }
-    std::cout << "[stage] soloing\n" << std::flush;
     {
         TunerProcessor soloing;
         soloing.setParameter("analyzerEnabled", 0);
@@ -561,7 +557,6 @@ int main(int argc, char** argv) {
         require(dynamic_cast<juce::Label*>(find(find, *view, "selectedBand"))->getText().startsWith("Band 4") && soloing.readSettings().soloBand == 3,
                 "a state loaded while the editor is open moves the selection to the band that Solo plays");
     }
-    std::cout << "[stage] sized\n" << std::flush;
     {
         TunerProcessor sized;
         std::unique_ptr<juce::AudioProcessorEditor> view(sized.createEditor());
@@ -576,8 +571,8 @@ int main(int argc, char** argv) {
         reopened.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
         view.reset(reopened.createEditor());
         require(view->getWidth() == 812 && view->getHeight() == 630, "the editor reopens at its saved size");
+        view.reset();
     }
-    std::cout << "[stage] dragged\n" << std::flush;
     {
         TunerProcessor dragged;
         dragged.setParameter("band0.gain", 6);
@@ -613,7 +608,6 @@ int main(int argc, char** argv) {
         dragged.history().undo();
         require(std::abs(q(3) - 0.71f) < 0.01f, "one scroll is one undo step");
     }
-    std::cout << "[stage] programs\n" << std::flush;
     {
         require(processor.getNumPrograms() == 11, "factory bank is in the DAW program list");
         require(processor.getProgramName(0) == "Flat" && processor.getProgramName(6) == "Side high-pass", "factory program names");
