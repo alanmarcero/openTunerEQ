@@ -130,6 +130,7 @@ void TunerProcessor::getStateInformation(juce::MemoryBlock& dest) {
         extra->setAttribute("program", program);
         extra->setAttribute("name", presetName);
         extra->setAttribute("editorWidth", editorWidth.load());
+        extra->setAttribute("selectedBand", activeSelectedBand.load());
         abCompare.writeXml(*extra);
         copyXmlToBinary(*xml, dest);
     }
@@ -144,6 +145,7 @@ void TunerProcessor::setStateInformation(const void* data, int size) {
         program = juce::jlimit(0, juce::jmax(0, getNumPrograms() - 1), extra->getIntAttribute("program", 0));
         presetName = extra->getStringAttribute("name");
         editorWidth = extra->getIntAttribute("editorWidth", editorWidth.load());
+        activeSelectedBand = juce::jlimit(0, 4, extra->getIntAttribute("selectedBand", 0));
         slotsOk = abCompare.readXml(*extra);
         xml->removeChildElement(extra, true);
     }

@@ -16,6 +16,8 @@ struct Settings {
     int soloBand = -1;
 };
 double estimateTailSeconds(const Settings&, double sampleRate) noexcept;
+// The band as the engine plays it: Solo plays the soloed band as a band pass and mutes the others.
+BandSettings audibleBand(const Settings&, size_t index) noexcept;
 class Equalizer {
 public:
     void prepare(double sampleRate) noexcept;

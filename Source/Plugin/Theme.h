@@ -1,7 +1,7 @@
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
 namespace ui {
-inline const juce::Colour background {0xff0d1317}, panel {0xf0152026}, ink {0xffe6f0f5}, muted {0xff869ca8}, copper {0xffffbe3b};
+inline const juce::Colour background {0xff0d1317}, panel {0xf0152026}, ink {0xffe6f0f5}, muted {0xff869ca8}, copper {0xffffbe3b}, warning {0xffe98779};
 inline const std::array<juce::Colour, 5> bandColours {
     juce::Colour(0xffffbe3b), juce::Colour(0xff48f0c8), juce::Colour(0xff78c6c1), juce::Colour(0xff84b9db), juce::Colour(0xffb9a3d5)};
 juce::Font font(float size, bool bold = false);

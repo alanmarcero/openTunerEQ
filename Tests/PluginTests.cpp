@@ -422,6 +422,27 @@ int main(int argc, char** argv) {
     require(listener.ends == 1, "closing editor ends active host gesture");
     frequencyParameter->removeListener(&listener);
     {
+        TunerProcessor soloing;
+        soloing.setParameter("analyzerEnabled", 0);
+        soloing.activeSelectedBand = 2;
+        std::unique_ptr<juce::AudioProcessorEditor> view(soloing.createEditor());
+        auto* curves = dynamic_cast<ResponseGraph*>(findType(findType, *view, false));
+        const juce::Point<int> lowZeroDb {48 + static_cast<int>(std::log(30.0 / 20) / std::log(1000.0) * (curves->getWidth() - 96)), 44 + (curves->getHeight() - 76) / 2};
+        require(curves->createComponentSnapshot(curves->getLocalBounds()).getPixelAt(lowZeroDb.x, lowZeroDb.y).getBrightness() > 0.8f,
+                "the flat EQ draws the white sum at 0 dB");
+        soloing.setParameter("soloSelected", 1);
+        require(curves->createComponentSnapshot(curves->getLocalBounds()).getPixelAt(lowZeroDb.x, lowZeroDb.y).getBrightness() < 0.6f,
+                "Solo draws the band pass it plays, far below 0 dB at 30 Hz");
+        view.reset(soloing.createEditor());
+        require(soloing.readSettings().soloBand == 2 && find(find, *view, "autoGain")->getAlpha() < 1,
+                "reopening the editor keeps the soloed band, and Solo shows Auto Gain as inactive");
+        juce::MemoryBlock saved;
+        soloing.getStateInformation(saved);
+        TunerProcessor reloaded;
+        reloaded.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
+        require(reloaded.readSettings().soloBand == 2, "a saved session solos the same band");
+    }
+    {
         TunerProcessor sized;
         std::unique_ptr<juce::AudioProcessorEditor> view(sized.createEditor());
         require(view->getConstrainer()->getMinimumWidth() <= 812 && view->getConstrainer()->getMaximumWidth() >= 1740, "the editor resizes from 70% to 150%");

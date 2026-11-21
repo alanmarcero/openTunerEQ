@@ -99,6 +99,15 @@ double estimateTailSeconds(const Settings& settings, double sampleRate) noexcept
     const auto timeConstant = -1.0 / (sampleRate * std::log(std::min(slowest, 1.0 - 1e-12)));
     return timeConstant * (std::log(1e9) + 2.0 * sections + boost * std::log(10.0) / 20.0);
 }
+BandSettings audibleBand(const Settings& settings, size_t index) noexcept {
+    auto band = settings.bands[index];
+    if (settings.soloBand < 0 || settings.soloBand >= 5) return band;
+    band.enabled = static_cast<int>(index) == settings.soloBand;
+    if (!band.enabled) return band;
+    band.shape = Shape::BandPass;
+    band.q = std::max(1.2, band.q);
+    return band;
+}
 void Equalizer::Bank::reset() noexcept {
     designedRate = -1.0;
     for (auto& channel : filters) for (auto& filter : channel) filter.reset();
@@ -189,18 +198,9 @@ void Equalizer::setSettings(const Settings& settings, bool immediately) noexcept
     bypass = settings.bypass;
     for (size_t i = 0; i < bands.size(); ++i) {
         auto& band = bands[i];
-        band.target = settings.bands[i];
+        band.target = audibleBand(settings, i);
         band.target.frequency = effectiveFrequency(band.target.frequency, settings.snap, rate, settings.a4);
-        band.target.compensatePhase = settings.phaseCompensation && isCut(band.target.shape) && band.target.placement != Placement::Stereo;
-        if (settings.soloBand >= 0 && settings.soloBand < 5) {
-            if (static_cast<int>(i) == settings.soloBand) {
-                band.target.enabled = true;
-                band.target.shape = Shape::BandPass;
-                band.target.q = std::max(1.2, band.target.q);
-            } else {
-                band.target.enabled = false;
-            }
-        }
+        band.target.compensatePhase = settings.phaseCompensation && isCut(settings.bands[i].shape) && band.target.placement != Placement::Stereo;
         if (immediately) {
             band.active = 0; band.remaining = band.priming = 0; band.wet = band.target.enabled ? 1 : 0;
             for (auto& bank : band.banks) {

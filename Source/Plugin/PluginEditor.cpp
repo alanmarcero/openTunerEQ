@@ -12,10 +12,9 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     snap.setTooltip("Snap every band to the nearest chromatic note of the A4 reference, including host automation");
     flats.setTooltip("Display flats instead of sharps; pitch is unchanged");
     bypass.setTooltip("Bypass the whole EQ, including output gain");
-    bypass.setColour(juce::TextButton::buttonOnColourId, ui::copper);
-    autoGain.setTooltip("Match the output's K-weighted loudness to the input so EQ moves are heard at equal level");
+    bypass.setColour(juce::TextButton::buttonOnColourId, ui::warning);
     soloSelected.setTooltip("Audition the currently selected EQ band in isolation");
-    soloSelected.setColour(juce::TextButton::buttonOnColourId, ui::copper);
+    soloSelected.setColour(juce::TextButton::buttonOnColourId, ui::warning);
     phaseComp.setComponentID("phaseComp");
     qMode.setComponentID("qMode"); qMode.addItemList(params::qModes, 1);
     dynThreshold.setComponentID("dynThreshold");
@@ -60,7 +59,7 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     if (auto* constrainer = getConstrainer()) constrainer->setFixedAspectRatio(1160.0 / 900.0);
     setSize(width, juce::roundToInt(width * 900.0 / 1160.0));
     setWantsKeyboardFocus(true);
-    select(0); timerCallback(); startTimerHz(24);
+    select(processor.activeSelectedBand.load()); timerCallback(); startTimerHz(24);
 }
 TunerEditor::~TunerEditor() { stopTimer(); setLookAndFeel(nullptr); }
 void TunerEditor::select(int band) {
@@ -79,7 +78,9 @@ void TunerEditor::timerCallback() {
     rangeLabel.setText(params::frequencyText(hz), juce::dontSendNotification);
     octaveDown.setEnabled(ote::noteFrequency(midi - 12, processor.referencePitch()) >= 20);
     octaveUp.setEnabled(ote::noteFrequency(midi + 12, processor.referencePitch()) <= std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49));
-    const auto bands = processor.readSettings().bands;
+    const auto settings = processor.readSettings();
+    std::array<ote::BandSettings, 5> bands;
+    for (size_t i = 0; i < bands.size(); ++i) bands[i] = ote::audibleBand(settings, i);
     const bool oneSidedCut = std::any_of(bands.begin(), bands.end(), [](const ote::BandSettings& b) {
         return b.enabled && ote::isCut(b.shape) && b.placement != ote::Placement::Stereo;
     });
@@ -94,6 +95,8 @@ void TunerEditor::timerCallback() {
     ui::showActive(qMode, "Bell width law. Symmetric matches boost and cut widths, Constant keeps Q fixed, Proportional narrows as gain grows.",
                    shapedBell ? "" : "Boost or cut a Bell band to use it.");
     ui::showActive(dynThreshold, "Level at which dynamic bands start to act.", dynamicBand ? "" : "Set a band's dynamic range to use it.");
+    ui::showActive(autoGain, "Match the output's K-weighted loudness to the input so EQ moves are heard at equal level.",
+                   settings.soloBand < 0 ? "" : "Solo Band turns it off. Turn off Solo Band to use it.");
     meter = std::max(processor.peak.load(), meter * 0.88f);
     repaint();
 }
@@ -148,7 +151,7 @@ void TunerEditor::paint(juce::Graphics& g) {
     ui::text(g, "Dyn", {984, 78, 34, 24}, 11, ui::muted, juce::Justification::centredRight);
     const auto db = juce::Decibels::gainToDecibels(meter, -60.0f);
     g.setColour(ui::muted.withAlpha(0.2f)); g.fillRoundedRectangle(944, 56, 122, 5, 2.5f);
-    g.setColour(db > 0 ? juce::Colour(0xffe98779) : juce::Colour(0xff48f0c8)); g.fillRoundedRectangle(944, 56, juce::jlimit(0.0f, 122.0f, (db + 60) / 60 * 122), 5, 2.5f);
+    g.setColour(db > 0 ? ui::warning : juce::Colour(0xff48f0c8)); g.fillRoundedRectangle(944, 56, juce::jlimit(0.0f, 122.0f, (db + 60) / 60 * 122), 5, 2.5f);
     ui::text(g, "Alan Marcero", {25, 876, 220, 15}, 10, ui::muted);
     ui::text(g, "A4", {25, 846, 24, 24}, 12, ui::muted, juce::Justification::centredLeft, true);
     ui::text(g, "12-tone equal temperament   /   v" JucePlugin_VersionString, {660, 876, 476, 15}, 10, ui::muted, juce::Justification::centredRight);

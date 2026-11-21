@@ -110,7 +110,10 @@ void ResponseGraph::paint(juce::Graphics& g) {
         g.setColour(ui::ink.withAlpha(0.35f)); g.drawVerticalLine(static_cast<int>(hoverX), p.getY(), p.getBottom());
     }
     auto settings = processor.readSettings();
-    for (size_t i = 0; i < 5; ++i) settings.bands[i].frequency = processor.bandFrequency(static_cast<int>(i));
+    for (size_t i = 0; i < 5; ++i) {
+        settings.bands[i] = ote::audibleBand(settings, i);
+        settings.bands[i].frequency = processor.bandFrequency(static_cast<int>(i));
+    }
     const auto rate = processor.displaySampleRate();
     {
         juce::Graphics::ScopedSaveState save(g); g.reduceClipRegion(p.toNearestInt());

@@ -537,5 +537,15 @@ int main() {
         for (size_t i = 0; i < 96000; ++i) quietError = std::max(quietError, std::abs(static_cast<double>(quiet[i]) - reference[i]));
         check(quietError < 1.0e-7, "soft saturation is transparent at normal levels");
     }
+    {
+        Settings soloed;
+        soloed.bands[2].q = 0.5;
+        soloed.soloBand = 2;
+        check(audibleBand(soloed, 2).enabled && audibleBand(soloed, 2).shape == Shape::BandPass && audibleBand(soloed, 2).q == 1.2,
+              "solo plays the soloed band as a band pass with Q of at least 1.2");
+        check(!audibleBand(soloed, 0).enabled && !audibleBand(soloed, 4).enabled, "solo mutes the other bands");
+        soloed.soloBand = -1;
+        check(audibleBand(soloed, 2).shape == Shape::Bell && audibleBand(soloed, 0).enabled, "without solo every band plays as set");
+    }
     std::cout << "PASS: " << checks << " checks\n";
 }
