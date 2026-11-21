@@ -34,6 +34,8 @@ TunerProcessor::TunerProcessor()
     phaseComp = state.getRawParameterValue("phaseComp");
     qMode = state.getRawParameterValue("qMode");
     dynThreshold = state.getRawParameterValue("dynThreshold");
+    undoHistory.onEdit = [this] { edited = true; };
+    presetName = factoryPresets().front().name;
     abCompare.prime();
 }
 void TunerProcessor::prepareToPlay(double rate, int) {
@@ -128,6 +130,7 @@ void TunerProcessor::writeParameters(juce::MemoryBlock& dest) {
     auto* preset = xml->createNewChildElement("preset");
     preset->setAttribute("name", presetName);
     preset->setAttribute("program", program);
+    preset->setAttribute("edited", edited);
     copyXmlToBinary(*xml, dest);
 }
 void TunerProcessor::readParameters(const juce::MemoryBlock& block) {
@@ -137,6 +140,7 @@ void TunerProcessor::readParameters(const juce::MemoryBlock& block) {
     if (auto* preset = xml->getChildByName("preset")) {
         presetName = preset->getStringAttribute("name");
         program = preset->getIntAttribute("program", program);
+        edited = preset->getBoolAttribute("edited");
         xml->removeChildElement(preset, true);
     }
     auto tree = juce::ValueTree::fromXml(*xml);
@@ -150,6 +154,7 @@ void TunerProcessor::getStateInformation(juce::MemoryBlock& dest) {
         auto* extra = xml->createNewChildElement("suite");
         extra->setAttribute("program", program);
         extra->setAttribute("name", presetName);
+        extra->setAttribute("edited", edited);
         extra->setAttribute("editorWidth", editorWidth.load());
         extra->setAttribute("selectedBand", activeSelectedBand.load());
         abCompare.writeXml(*extra);
@@ -165,6 +170,7 @@ void TunerProcessor::setStateInformation(const void* data, int size) {
     if (hadSuite) {
         program = juce::jlimit(0, juce::jmax(0, getNumPrograms() - 1), extra->getIntAttribute("program", 0));
         presetName = extra->getStringAttribute("name");
+        edited = extra->getBoolAttribute("edited");
         editorWidth = extra->getIntAttribute("editorWidth", editorWidth.load());
         activeSelectedBand = juce::jlimit(0, 4, extra->getIntAttribute("selectedBand", 0));
         slotsOk = abCompare.readXml(*extra);
@@ -176,7 +182,7 @@ void TunerProcessor::setStateInformation(const void* data, int size) {
     state.replaceState(tree);
     if (!hadSuite || !slotsOk) {
         program = hadSuite ? program : 0;
-        if (!hadSuite) presetName.clear();
+        if (!hadSuite) { presetName.clear(); edited = false; }
         abCompare.prime();
     }
 }
@@ -200,6 +206,7 @@ void TunerProcessor::applyFactory(int index) {
     for (const auto& [id, value] : presets[static_cast<size_t>(index)].values) assignParameter(id, value);
     program = index;
     presetName = presets[static_cast<size_t>(index)].name;
+    edited = false;
 }
 void TunerProcessor::setCurrentProgram(int index) {
     if (!juce::isPositiveAndBelow(index, getNumPrograms())) return;
@@ -208,6 +215,17 @@ void TunerProcessor::setCurrentProgram(int index) {
     else applyFactory(index);
 }
 std::unique_ptr<juce::XmlElement> TunerProcessor::parameterXml() { return state.copyState().createXml(); }
+void TunerProcessor::loadPreset(const suite::PresetStore::Item& item) {
+    if (item.factory) { setCurrentProgram(item.factoryIndex); return; }
+    if (auto xml = presetStore.load(item)) loadPresetXml(*xml, item.name);
+}
+bool TunerProcessor::savePreset(const juce::String& name) {
+    const auto xml = parameterXml();
+    if (xml == nullptr || !presetStore.save(name, *xml)) return false;
+    presetName = suite::PresetStore::cleanName(name);
+    edited = false;
+    return true;
+}
 void TunerProcessor::loadPresetXml(const juce::XmlElement& xml, const juce::String& name) {
     undoHistory.applyChange("Preset", [this, &xml, &name] {
         auto tree = juce::ValueTree::fromXml(xml);
@@ -216,6 +234,7 @@ void TunerProcessor::loadPresetXml(const juce::XmlElement& xml, const juce::Stri
         injectDefaults(tree);
         state.replaceState(tree);
         presetName = name;
+        edited = false;
     });
 }
 juce::AudioProcessorParameter* TunerProcessor::getBypassParameter() const { return state.getParameter("bypass"); }

@@ -37,8 +37,12 @@ public:
     suite::ABCompare& compare() noexcept { return abCompare; }
     suite::PresetStore& presets() noexcept { return presetStore; }
     juce::String presetTitle() const { return presetName; }
+    // True after the first edit since the preset loaded or saved.
+    bool presetEdited() const noexcept { return edited; }
     std::unique_ptr<juce::XmlElement> parameterXml();
     void loadPresetXml(const juce::XmlElement&, const juce::String& name);
+    void loadPreset(const suite::PresetStore::Item&);
+    bool savePreset(const juce::String& name);
     params::State state;
     SpectrumCapture spectrum;
     float artworkPhase() const noexcept { return artworkClock.currentPhase(); }
@@ -56,6 +60,7 @@ private:
     suite::PresetStore presetStore;
     int program = 0;
     juce::String presetName;
+    bool edited = false;
     void writeParameters(juce::MemoryBlock&);
     void readParameters(const juce::MemoryBlock&);
     void injectDefaults(juce::ValueTree&) const;

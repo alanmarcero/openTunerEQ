@@ -22,10 +22,8 @@ public:
         deleteButton.setComponentID("presetDelete");
         loadButton.onClick = [this] { loadSelected(); };
         saveButton.onClick = [this] { askName("Save preset", "Saved presets go in your Documents folder.", "My preset", [this](const juce::String& name) {
-            if (auto xml = processor.parameterXml()) {
-                if (processor.presets().save(name, *xml)) reload();
-                else status.setText("That name is reserved or invalid.", juce::dontSendNotification);
-            }
+            if (processor.savePreset(name)) reload();
+            else status.setText("That name is reserved or invalid.", juce::dontSendNotification);
         }); };
         renameButton.onClick = [this] {
             if (const auto* item = selected()) if (!item->factory)
@@ -103,8 +101,7 @@ private:
     void loadSelected() {
         const auto* item = selected();
         if (item == nullptr) return;
-        if (item->factory) processor.setCurrentProgram(item->factoryIndex);
-        else if (auto xml = presets.load(*item)) processor.loadPresetXml(*xml, item->name);
+        processor.loadPreset(*item);
         status.setText(item->factory ? "Factory presets stay read-only." : "Loaded " + item->name + ".", juce::dontSendNotification);
     }
     void askName(const juce::String& title, const juce::String& message, const juce::String& initial, std::function<void(const juce::String&)> done) {
@@ -130,11 +127,15 @@ private:
 };
 }
 SuiteBar::SuiteBar(TunerProcessor& p) : processor(p), history(p.history()), compare(p.compare()), presets(p.presets()) {
-    for (auto* button : {&undoButton, &redoButton, &slotA, &slotB, &copyAtoB, &copyBtoA, &presetButton}) addAndMakeVisible(button);
+    for (auto* button : {&undoButton, &redoButton, &slotA, &slotB, &copyAtoB, &copyBtoA, &presetButton, &previousButton, &nextButton}) addAndMakeVisible(button);
     undoButton.setComponentID("undo"); redoButton.setComponentID("redo");
     slotA.setComponentID("slotA"); slotB.setComponentID("slotB");
     copyAtoB.setComponentID("copyAtoB"); copyBtoA.setComponentID("copyBtoA");
     presetButton.setComponentID("presets");
+    previousButton.setComponentID("presetPrevious"); nextButton.setComponentID("presetNext");
+    previousButton.setTooltip("Previous preset"); nextButton.setTooltip("Next preset");
+    previousButton.onClick = [this] { step(-1); };
+    nextButton.onClick = [this] { step(1); };
     undoButton.setTooltip("Undo the last parameter edit");
     redoButton.setTooltip("Redo the last undone edit");
     slotA.setTooltip("Hear slot A"); slotB.setTooltip("Hear slot B");
@@ -160,7 +161,9 @@ void SuiteBar::resized() {
     slotB.setBounds(188, 0, 40, 40);
     copyAtoB.setBounds(240, 0, 76, 40);
     copyBtoA.setBounds(320, 0, 76, 40);
-    presetButton.setBounds(408, 0, juce::jmax(160, getWidth() - 408), 40);
+    previousButton.setBounds(408, 0, 40, 40);
+    presetButton.setBounds(452, 0, juce::jmax(160, getWidth() - 496), 40);
+    nextButton.setBounds(presetButton.getRight() + 4, 0, 40, 40);
 }
 void SuiteBar::refresh() {
     undoButton.setEnabled(history.manager().canUndo());
@@ -168,7 +171,19 @@ void SuiteBar::refresh() {
     slotA.setToggleState(!compare.isB(), juce::dontSendNotification);
     slotB.setToggleState(compare.isB(), juce::dontSendNotification);
     const auto name = processor.presetTitle();
-    presetButton.setButtonText(name.isEmpty() ? "Presets" : (name.length() > 28 ? name.substring(0, 27) + "..." : name));
+    const auto shown = name.length() > 24 ? name.substring(0, 23) + "..." : name;
+    presetButton.setButtonText(name.isEmpty() ? "Presets" : shown + (processor.presetEdited() ? " *" : ""));
+}
+// Steps through the browser's list order and wraps at the ends. An unknown name steps from either end.
+void SuiteBar::step(int direction) {
+    const auto items = presets.filtered({});
+    if (items.isEmpty()) return;
+    const auto name = processor.presetTitle();
+    const auto found = std::find_if(items.begin(), items.end(), [&name](const PresetStore::Item& item) { return item.name == name; });
+    auto from = static_cast<int>(std::distance(items.begin(), found));
+    if (found == items.end() && direction > 0) from = -1;
+    processor.loadPreset(items[(from + direction + items.size()) % items.size()]);
+    refresh();
 }
 void SuiteBar::openBrowser() {
     if (callout != nullptr) { callout->dismiss(); return; }

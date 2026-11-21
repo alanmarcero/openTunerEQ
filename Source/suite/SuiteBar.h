@@ -16,8 +16,9 @@ private:
     ABCompare& compare;
     PresetStore& presets;
     juce::TextButton undoButton {"Undo"}, redoButton {"Redo"}, slotA {"A"}, slotB {"B"};
-    juce::TextButton copyAtoB {"A to B"}, copyBtoA {"B to A"}, presetButton {"Presets"};
+    juce::TextButton copyAtoB {"A to B"}, copyBtoA {"B to A"}, presetButton {"Presets"}, previousButton {"<"}, nextButton {">"};
     juce::Component::SafePointer<juce::CallOutBox> callout;
     void openBrowser();
+    void step(int direction);
 };
 }

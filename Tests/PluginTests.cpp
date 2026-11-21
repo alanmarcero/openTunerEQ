@@ -439,6 +439,35 @@ int main(int argc, char** argv) {
     require(listener.ends == 1, "closing editor ends active host gesture");
     frequencyParameter->removeListener(&listener);
     {
+        TunerProcessor named;
+        std::unique_ptr<juce::AudioProcessorEditor> view(named.createEditor());
+        auto* previous = dynamic_cast<juce::TextButton*>(find(find, *view, "presetPrevious"));
+        auto* next = dynamic_cast<juce::TextButton*>(find(find, *view, "presetNext"));
+        require(previous != nullptr && next != nullptr && next->getWidth() == 40 && next->getHeight() == 40
+                && previous->getTooltip() == "Previous preset" && next->getTooltip() == "Next preset", "40x40 previous and next preset buttons");
+        const auto order = named.presets().filtered({});
+        named.loadPreset(order[0]);
+        next->onClick();
+        require(named.presetTitle() == order[1].name, "Next loads the next preset in the browser's order");
+        previous->onClick();
+        previous->onClick();
+        require(named.presetTitle() == order[order.size() - 1].name && !named.presetEdited(), "Previous wraps from the first preset to the last");
+        named.setParameter("output", -2);
+        require(named.presetEdited(), "an edit marks the preset as changed");
+        named.compare().toggle();
+        require(named.presetTitle() == named.getProgramName(0) && !named.presetEdited(), "slot B keeps its own preset name");
+        named.compare().toggle();
+        require(named.presetTitle() == order[order.size() - 1].name && named.presetEdited(), "slot A keeps its name and edit mark");
+        juce::MemoryBlock saved;
+        named.getStateInformation(saved);
+        TunerProcessor reopened;
+        reopened.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
+        view.reset(reopened.createEditor());
+        require(dynamic_cast<juce::TextButton*>(find(find, *view, "presets"))->getButtonText().endsWith(" *"), "the session keeps the name and the edit mark");
+        reopened.loadPreset(order[0]);
+        require(!reopened.presetEdited(), "loading a preset clears the edit mark");
+    }
+    {
         TunerProcessor dynamicEq;
         dynamicEq.setParameter("band0.dyn", 12);
         dynamicEq.setParameter("dynThreshold", -60);

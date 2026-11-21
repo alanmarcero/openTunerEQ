@@ -77,6 +77,8 @@ void ParameterUndo::parameterGestureChanged(int index, bool starting) {
         if (std::abs(to - entry.second) > 1.0e-6f) changes.push_back({entry.first, entry.second, to});
     }
     gestureStart.clear();
-    if (!changes.empty()) manager().perform(new GroupAction(*this, std::move(changes)));
+    if (changes.empty()) return;
+    manager().perform(new GroupAction(*this, std::move(changes)));
+    if (onEdit) onEdit();
 }
 }

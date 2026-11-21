@@ -18,6 +18,8 @@ public:
     void applyChange(const juce::String& name, std::function<void()> change);
     void selectSlot(int index) noexcept { slot = index; }
     void clearSlot(int index) { managers[static_cast<size_t>(index)].clearUndoHistory(); }
+    // Called when an edit gesture becomes an undo step.
+    std::function<void()> onEdit;
 
 private:
     struct Change { juce::AudioProcessorParameter* parameter; float from; float to; };
