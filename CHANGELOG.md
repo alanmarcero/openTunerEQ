@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.9.3
+
+- **Parameter Locking:** Fix parameter lock test compilation on Windows and release v1.9.3.
+
 ## v1.9.2
 
 - **Parameter Locking:** Add per-parameter locking across every plugin parameter, persisted in session state and preserved across preset loads and randomization.
