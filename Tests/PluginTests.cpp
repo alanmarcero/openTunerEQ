@@ -120,7 +120,7 @@ void checkParameterLocks() {
         require(ranged != nullptr, "every parameter is a RangedAudioParameter");
         require(!processor.isParamLocked(ranged->paramID), "parameter starts unlocked");
         const float target = ranged->getDefaultValue() < 0.5f ? 0.85f : 0.15f;
-        ranged->setValueNotifyingHost(target);
+        ranged->setValueNotifyingHost(ranged->convertTo0to1(ranged->convertFrom0to1(target)));
         processor.setParamLocked(ranged->paramID, true);
         require(processor.isParamLocked(ranged->paramID), "parameter can be locked");
         expected.emplace_back(ranged->paramID, ranged->getValue());
@@ -148,7 +148,8 @@ void checkParameterLocks() {
     if (auto xml = fresh.parameterXml()) restored.loadPresetXml(*xml, "Fresh");
     verifyAllLockedAndPreserved("locked parameters are preserved across loadPresetXml");
 
-    if (!restored.presets().list().empty()) restored.loadPreset(restored.presets().list().front());
+    const auto items = restored.presets().filtered("");
+    if (!items.isEmpty()) restored.loadPreset(items.getFirst());
     verifyAllLockedAndPreserved("locked parameters are preserved across loadPreset");
 
     std::unique_ptr<juce::AudioProcessorEditor> editor(restored.createEditor());
