@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.9.2
+
+- **Parameter Locking:** Add per-parameter locking across every plugin parameter, persisted in session state and preserved across preset loads and randomization.
+
 ## v1.9.1
 
 - **UI & Suite Fixes:** UI polish, unit formatting and typed-value entry, inactive control dimming, per-slot A/B undo, inline preset confirms, peak-hold meters, uniform scaling, and screen-reader titles.
