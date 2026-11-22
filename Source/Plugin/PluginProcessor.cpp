@@ -162,6 +162,14 @@ void TunerProcessor::getStateInformation(juce::MemoryBlock& dest) {
         extra->setAttribute("editorWidth", editorWidth.load());
         extra->setAttribute("selectedBand", activeSelectedBand.load());
         abCompare.writeXml(*extra);
+        {
+            std::lock_guard<std::mutex> lock(lockMutex);
+            if (!lockedParams.empty()) {
+                auto* locks = extra->createNewChildElement("locks");
+                for (const auto& id : lockedParams)
+                    locks->createNewChildElement("lock")->setAttribute("id", id);
+            }
+        }
         copyXmlToBinary(*xml, dest);
     }
 }
@@ -177,13 +185,26 @@ void TunerProcessor::setStateInformation(const void* data, int size) {
         editorWidth = extra->getIntAttribute("editorWidth", editorWidth.load());
         activeSelectedBand = juce::jlimit(0, 4, extra->getIntAttribute("selectedBand", 0));
         slotsOk = abCompare.readXml(*extra);
+        {
+            std::lock_guard<std::mutex> lock(lockMutex);
+            lockedParams.clear();
+            if (auto* locks = extra->getChildByName("locks")) {
+                for (auto* child : locks->getChildIterator()) {
+                    if (child->hasTagName("lock")) {
+                        const auto id = child->getStringAttribute("id");
+                        if (id.isNotEmpty()) lockedParams.insert(id);
+                    }
+                }
+            }
+        }
+        lockRevision.fetch_add(1, std::memory_order_relaxed);
         xml->removeChildElement(extra, true);
     }
     auto tree = juce::ValueTree::fromXml(*xml);
     if (!tree.isValid()) return;
     injectDefaults(tree);
     state.replaceState(tree);
-    if (!hadSuite) preset = {};
+    if (!hadSuite) { preset = {}; unlockAllParams(); }
     if (!hadSuite || !slotsOk) abCompare.prime();
 }
 int TunerProcessor::getNumPrograms() { return static_cast<int>(factoryPresets().size()); }
@@ -198,12 +219,14 @@ void TunerProcessor::applyFactory(int index) {
     const auto& presets = factoryPresets();
     if (!juce::isPositiveAndBelow(index, static_cast<int>(presets.size()))) return;
     auto reset = [&](const juce::String& id) {
+        if (isParamLocked(id)) return;
         if (auto* parameter = state.getParameter(id)) parameter->setValueNotifyingHost(parameter->getDefaultValue());
     };
     for (int i = 0; i < 5; ++i)
         for (const char* key : {"enabled", "shape", "freq", "gain", "q", "slope", "placement", "dyn", "drive"}) reset(params::bandId(i, key));
     for (const char* id : {"output", "bypass", "snap", "scale", "autoGain", "soloSelected", "phaseComp", "qMode", "dynThreshold"}) reset(id);
-    for (const auto& [id, value] : presets[static_cast<size_t>(index)].values) assignParameter(id, value);
+    for (const auto& [id, value] : presets[static_cast<size_t>(index)].values)
+        if (!isParamLocked(id)) assignParameter(id, value);
     preset = {presets[static_cast<size_t>(index)].name, index, false};
 }
 void TunerProcessor::setCurrentProgram(int index) {
@@ -230,10 +253,47 @@ void TunerProcessor::loadPresetXml(const juce::XmlElement& xml, const juce::Stri
         if (!tree.isValid() || tree.getType() != state.state.getType()) return;
         if (auto extra = tree.getChildWithName("suite"); extra.isValid()) tree.removeChild(extra, nullptr);
         injectDefaults(tree);
+        for (auto* param : getParameters()) {
+            auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(param);
+            if (ranged == nullptr || !isParamLocked(ranged->paramID)) continue;
+            const auto value = ranged->convertFrom0to1(ranged->getValue());
+            if (auto child = tree.getChildWithProperty("id", ranged->paramID); child.isValid()) {
+                child.setProperty("value", value, nullptr);
+            } else {
+                juce::ValueTree added("PARAM");
+                added.setProperty("id", ranged->paramID, nullptr);
+                added.setProperty("value", value, nullptr);
+                tree.appendChild(added, nullptr);
+            }
+        }
         state.replaceState(tree);
         preset.name = name;
         preset.edited = false;
     });
+}
+bool TunerProcessor::isParamLocked(const juce::String& id) const {
+    std::lock_guard<std::mutex> lock(lockMutex);
+    return lockedParams.find(id) != lockedParams.end();
+}
+void TunerProcessor::setParamLocked(const juce::String& id, bool locked) {
+    {
+        std::lock_guard<std::mutex> lock(lockMutex);
+        if (locked) lockedParams.insert(id);
+        else lockedParams.erase(id);
+    }
+    lockRevision.fetch_add(1, std::memory_order_relaxed);
+}
+void TunerProcessor::unlockAllParams() {
+    {
+        std::lock_guard<std::mutex> lock(lockMutex);
+        if (lockedParams.empty()) return;
+        lockedParams.clear();
+    }
+    lockRevision.fetch_add(1, std::memory_order_relaxed);
+}
+bool TunerProcessor::hasLockedParams() const {
+    std::lock_guard<std::mutex> lock(lockMutex);
+    return !lockedParams.empty();
 }
 juce::AudioProcessorParameter* TunerProcessor::getBypassParameter() const { return state.getParameter("bypass"); }
 void TunerProcessor::setParameter(const juce::String& id, float value) {

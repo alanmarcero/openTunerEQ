@@ -5,6 +5,8 @@
 #include "ABCompare.h"
 #include "ParameterUndo.h"
 #include "PresetStore.h"
+#include <mutex>
+#include <set>
 class TunerProcessor final : public juce::AudioProcessor {
 public:
     // Tests pass a temporary preset folder.
@@ -34,6 +36,11 @@ public:
     bool usesFlats() const noexcept { return flats->load() > 0.5f; }
     double displaySampleRate() const noexcept { return uiSampleRate.load(); }
     void setParameter(const juce::String& id, float value);
+    bool isParamLocked(const juce::String& id) const;
+    void setParamLocked(const juce::String& id, bool locked);
+    void unlockAllParams();
+    bool hasLockedParams() const;
+    std::atomic<uint32_t> lockRevision {0};
     suite::ParameterUndo& history() noexcept { return undoHistory; }
     suite::ABCompare& compare() noexcept { return abCompare; }
     suite::PresetStore& presets() noexcept { return presetStore; }
@@ -77,6 +84,8 @@ private:
         *phaseComp, *qMode, *dynThreshold;
     std::atomic<double> uiSampleRate {48000};
     ote::Equalizer engine;
+    mutable std::mutex lockMutex;
+    std::set<juce::String> lockedParams;
     void process(juce::AudioBuffer<float>&, bool forceBypass);
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TunerProcessor)
 };

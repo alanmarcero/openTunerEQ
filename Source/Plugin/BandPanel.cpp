@@ -13,12 +13,15 @@ BandPanel::BandPanel(TunerProcessor& p, int band)
              {&gain, "gain"}, {&q, "Q"}, {&shape, "shape"}, {&slope, "slope"}, {&dynamic, "dynamic range"}, {&drive, "drive"}})
         control->setTitle(getName() + " " + title);
     enabled.setClickingTogglesState(true); enabled.setColour(juce::TextButton::buttonOnColourId, colour);
+    enabled.setComponentID(id("enabled"));
     enabled.setTooltip("Enable or bypass this EQ band");
-    note.setComponentID(id("note"));
+    note.setComponentID(id("note")); octave.setComponentID(id("octave"));
+    down.setComponentID(id("down")); up.setComponentID(id("up"));
     note.setColour(juce::ComboBox::textColourId, colour);
     for (int i = 0; i <= 10; ++i) octave.addItem(juce::String(i), i + 1);
     populateNotes();
     shape.addItemList(params::shapes, 1); slope.addItemList(params::slopes, 1); placement.addItemList(params::placements, 1);
+    shape.setComponentID(id("shape")); slope.setComponentID(id("slope"));
     placement.setComponentID(id("placement"));
     frequency.setSliderStyle(juce::Slider::LinearHorizontal);
     frequency.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);

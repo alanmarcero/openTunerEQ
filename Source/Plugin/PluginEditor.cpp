@@ -4,6 +4,31 @@
 namespace {
 constexpr int designWidth = 1160, designHeight = 900;
 constexpr int allPanels = 0x1f, pianoRefresh = 1 << 5, anyRefresh = 1 << 6, everything = allPanels | pianoRefresh | anyRefresh;
+void drawPadlock(juce::Graphics& g, juce::Rectangle<float> box) {
+    g.setColour(ui::background.withAlpha(0.85f));
+    g.fillRoundedRectangle(box, 2.5f);
+    const auto cx = box.getCentreX();
+    juce::Path shackle;
+    shackle.addArc(cx - 2.3f, box.getY() + 1.5f, 4.6f, 4.6f, -juce::MathConstants<float>::halfPi, juce::MathConstants<float>::halfPi, true);
+    g.setColour(ui::copper);
+    g.strokePath(shackle, juce::PathStrokeType(1.3f));
+    g.fillRoundedRectangle(cx - 3.5f, box.getY() + 4.5f, 7.0f, 5.5f, 1.2f);
+}
+}
+void LockOverlay::paint(juce::Graphics& g) {
+    auto* parent = getParentComponent();
+    if (parent == nullptr) return;
+    std::function<void(juce::Component&)> visit = [&](juce::Component& comp) {
+        if (&comp == this || !comp.isVisible()) return;
+        const auto cid = comp.getComponentID();
+        if (cid.isNotEmpty() && processor.isParamLocked(cid)) {
+            const auto area = getLocalArea(&comp, comp.getLocalBounds()).toFloat();
+            const float rightInset = dynamic_cast<juce::ComboBox*>(&comp) != nullptr ? 18.0f : 3.0f;
+            drawPadlock(g, {area.getRight() - rightInset - 11.0f, area.getY() + 2.0f, 11.0f, 12.0f});
+        }
+        for (auto* child : comp.getChildren()) visit(*child);
+    };
+    for (auto* child : parent->getChildren()) visit(*child);
 }
 Faceplate::Faceplate() : image(juce::ImageCache::getFromMemory(BinaryData::analogcyberfaceplate_png, BinaryData::analogcyberfaceplate_pngSize)) {
     setComponentID("faceplate"); setOpaque(true); setBufferedToImage(true); setInterceptsMouseClicks(false, false);
@@ -32,7 +57,9 @@ void TuningFork::paint(juce::Graphics& g) {
     const float size = 46.0f + 8.0f * decay * decay;
     drawable->drawWithin(g, juce::Rectangle<float>(size, size).withCentre(getLocalBounds().toFloat().getCentre()), juce::RectanglePlacement::centred, 0.78f + 0.22f * decay);
 }
-TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor(p), fork(p), meter(p.peak, juce::Colour(0xff48f0c8)), graph(p), piano(p), suite(p) {
+TunerEditor::TunerEditor(TunerProcessor& p)
+    : AudioProcessorEditor(p), processor(p), fork(p), meter(p.peak, juce::Colour(0xff48f0c8)), graph(p), piano(p), suite(p),
+      lockOverlay(p), lastLockRevision(p.lockRevision.load(std::memory_order_relaxed)) {
     setLookAndFeel(&theme);
     addAndMakeVisible(content);
     for (juce::Component* c : std::initializer_list<juce::Component*>{&faceplate, &fork, &meter}) content.addAndMakeVisible(c);
@@ -56,6 +83,7 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
     scale.setComponentID("scale");
     scale.setSliderStyle(juce::Slider::LinearHorizontal); scale.setTextBoxStyle(juce::Slider::TextBoxRight, false, 52, 24);
     scale.setDoubleClickReturnValue(true, 100); scale.setTooltip("Global EQ gain scale (0% flat to 200% exaggerated)");
+    output.setComponentID("output");
     output.setSliderStyle(juce::Slider::LinearHorizontal); output.setTextBoxStyle(juce::Slider::TextBoxRight, false, 62, 24);
     output.setDoubleClickReturnValue(true, 0); output.setTooltip("Output trim");
     snapAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "snap", snap);
@@ -102,9 +130,12 @@ TunerEditor::TunerEditor(TunerProcessor& p) : AudioProcessorEditor(p), processor
         refreshMasks.push_back(mask);
     }
     for (auto* parameter : processor.getParameters()) parameter->addListener(this);
+    content.addAndMakeVisible(lockOverlay);
+    content.addMouseListener(this, true);
     select(processor.activeSelectedBand.load()); startTimerHz(24);
 }
 TunerEditor::~TunerEditor() {
+    content.removeMouseListener(this);
     for (auto* parameter : processor.getParameters()) parameter->removeListener(this);
     stopTimer(); setLookAndFeel(nullptr);
 }
@@ -122,6 +153,10 @@ void TunerEditor::select(int band) {
 void TunerEditor::timerCallback() {
     // A state load can change the selected band, and Solo follows that band.
     if (const auto band = processor.activeSelectedBand.load(); band != selected) { select(band); return; }
+    if (const auto rev = processor.lockRevision.load(std::memory_order_relaxed); rev != lastLockRevision) {
+        lastLockRevision = rev;
+        lockOverlay.repaint();
+    }
     suite.refresh();
     graph.animate();
     const auto phase = processor.artworkPhase();
@@ -176,6 +211,44 @@ void TunerEditor::resized() {
     octaveDown.setBounds(25, 800, 90, 40); octaveUp.setBounds(123, 800, 90, 40);
     reference.setBounds(50, 846, 182, 24);
     piano.setBounds(240, 760, 896, 110);
+    lockOverlay.setBounds(content.getLocalBounds());
+}
+void TunerEditor::mouseDown(const juce::MouseEvent& e) {
+    if (!e.mods.isPopupMenu()) return;
+    juce::String paramId;
+    juce::Component* target = nullptr;
+    for (auto* c = e.eventComponent; c != nullptr && c != &content; c = c->getParentComponent()) {
+        const auto cid = c->getComponentID();
+        if (cid.isEmpty()) continue;
+        if (cid.endsWith(".note") || cid.endsWith(".octave") || cid.endsWith(".down") || cid.endsWith(".up")) {
+            paramId = cid.upToLastOccurrenceOf(".", true, false) + "freq";
+            target = c;
+            break;
+        }
+        if (processor.state.getParameter(cid) != nullptr) {
+            paramId = cid;
+            target = c;
+            break;
+        }
+    }
+    if (paramId.isEmpty() || target == nullptr) return;
+    auto* param = processor.state.getParameter(paramId);
+    if (param == nullptr) return;
+    juce::PopupMenu menu;
+    const bool locked = processor.isParamLocked(paramId);
+    menu.addItem(1, (locked ? "Unlock " : "Lock ") + param->getName(64));
+    if (processor.hasLockedParams()) {
+        menu.addSeparator();
+        menu.addItem(2, "Unlock all parameters");
+    }
+    juce::Component::SafePointer<TunerEditor> safe(this);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(target),
+                       [safe, paramId](int choice) {
+                           if (safe == nullptr) return;
+                           if (choice == 1) safe->processor.setParamLocked(paramId, !safe->processor.isParamLocked(paramId));
+                           else if (choice == 2) safe->processor.unlockAllParams();
+                           safe->lockOverlay.repaint();
+                       });
 }
 bool TunerEditor::keyPressed(const juce::KeyPress& key) {
     const auto command = juce::ModifierKeys::commandModifier;

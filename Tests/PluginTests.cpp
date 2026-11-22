@@ -112,6 +112,65 @@ void checkButtonLayout(juce::Component& parent, int minimum) {
                 require(!child->getBounds().intersects(parent.getChildComponent(j)->getBounds()), "Two controls or panels overlap");
     }
 }
+void checkParameterLocks() {
+    TunerProcessor processor;
+    std::vector<std::pair<juce::String, float>> expected;
+    for (auto* param : processor.getParameters()) {
+        auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(param);
+        require(ranged != nullptr, "every parameter is a RangedAudioParameter");
+        require(!processor.isParamLocked(ranged->paramID), "parameter starts unlocked");
+        const float target = ranged->getDefaultValue() < 0.5f ? 0.85f : 0.15f;
+        ranged->setValueNotifyingHost(target);
+        processor.setParamLocked(ranged->paramID, true);
+        require(processor.isParamLocked(ranged->paramID), "parameter can be locked");
+        expected.emplace_back(ranged->paramID, ranged->getValue());
+    }
+    require(processor.hasLockedParams(), "hasLockedParams is true when parameters are locked");
+
+    juce::MemoryBlock saved;
+    processor.getStateInformation(saved);
+    TunerProcessor restored;
+    restored.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
+
+    auto verifyAllLockedAndPreserved = [&](const char* stage) {
+        for (const auto& [id, value] : expected) {
+            require(restored.isParamLocked(id), stage);
+            auto* p = restored.state.getParameter(id);
+            require(p != nullptr && std::abs(p->getValue() - value) < 1.0e-5f, stage);
+        }
+    };
+    verifyAllLockedAndPreserved("locked parameters and values survive getStateInformation/setStateInformation");
+
+    restored.setCurrentProgram(1);
+    verifyAllLockedAndPreserved("locked parameters are preserved across setCurrentProgram");
+
+    TunerProcessor fresh;
+    if (auto xml = fresh.parameterXml()) restored.loadPresetXml(*xml, "Fresh");
+    verifyAllLockedAndPreserved("locked parameters are preserved across loadPresetXml");
+
+    if (!restored.presets().list().empty()) restored.loadPreset(restored.presets().list().front());
+    verifyAllLockedAndPreserved("locked parameters are preserved across loadPreset");
+
+    std::unique_ptr<juce::AudioProcessorEditor> editor(restored.createEditor());
+    auto findById = [](auto& self, juce::Component& root, const juce::String& id) -> juce::Component* {
+        if (root.getComponentID() == id) return &root;
+        for (auto* child : root.getChildren())
+            if (auto* found = self(self, *child, id)) return found;
+        return nullptr;
+    };
+    for (const auto& [id, value] : expected) {
+        (void) value;
+        require(findById(findById, *editor, id) != nullptr, "every RangedAudioParameter has a UI control with matching componentID");
+    }
+    editor.reset();
+
+    restored.unlockAllParams();
+    require(!restored.hasLockedParams(), "unlockAllParams clears all locks");
+    for (const auto& [id, value] : expected) {
+        (void) value;
+        require(!restored.isParamLocked(id), "every parameter is unlocked after unlockAllParams");
+    }
+}
 
 void saveFactoryPreview(const char* path) {
     TunerProcessor processor;
@@ -234,6 +293,7 @@ int main(int argc, char** argv) {
     }
     checkAnalyzerSources();
     checkParameterText();
+    checkParameterLocks();
     processor.prepareToPlay(48000, 512);
     processor.setParameter("band0.freq", 445);
     auto settings = processor.readSettings();
