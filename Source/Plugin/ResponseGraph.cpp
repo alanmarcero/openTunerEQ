@@ -124,7 +124,7 @@ void ResponseGraph::paint(juce::Graphics& g) {
         if (analyzerOn) caption += " / " + juce::String(analyzer.levelAt(hz, tiltDbPerOctave), 1) + (afterEQ ? " dB (post)" : " dB (pre)");
         caption += " / Alt-click: tune";
     }
-    ui::text(g, caption, {124, 8, analyzerToggle.getX() - 132.0f, 20}, 11, ui::muted);
+    ui::text(g, caption, {124, 8, analyzerToggle.getX() - 132.0f, 20}, 12, ui::ink.withAlpha(0.75f));
     if (analyzerOn) paintSpectrum(g);
     for (int db = -24; db <= 24; db += 6) {
         const auto y = yFor(db); g.setColour(ui::muted.withAlpha(db == 0 ? 0.28f : 0.09f)); g.drawHorizontalLine(static_cast<int>(y), p.getX(), p.getRight());
@@ -417,8 +417,11 @@ void PianoStrip::paint(juce::Graphics& g) {
         g.setColour(fill);
         g.fillRoundedRectangle(rect, 3);
         g.setColour(juce::Colours::black.withAlpha(0.5f)); g.drawRoundedRectangle(rect, 3, 1);
-        ui::text(g, juce::String(ote::noteName(midi, processor.usesFlats())), rect.withTrimmedTop(rect.getHeight() - 19), black ? 8.0f : 10.0f,
-                 black && midi != current ? ui::muted : ui::background, juce::Justification::centred, midi == current);
+        const auto labelColour = midi == current ? ui::background
+            : black ? (valid ? ui::ink.withAlpha(0.85f) : ui::muted)
+                    : ui::background;
+        ui::text(g, juce::String(ote::noteName(midi, processor.usesFlats())), rect.withTrimmedTop(rect.getHeight() - 21), black ? 9.5f : 11.5f,
+                 labelColour, juce::Justification::centred, midi == current);
     }
     const auto settings = processor.readSettings();
     std::array<int, 5> notes {};

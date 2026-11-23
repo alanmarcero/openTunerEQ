@@ -56,13 +56,13 @@ void Faceplate::paint(juce::Graphics& g) {
     g.setColour(ui::copper.withAlpha(0.35f)); g.drawHorizontalLine(64, 24, 1136);
     g.setColour(ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(8, 8, 1144, 884, 8, 1);
     ui::text(g, "openTunerEQ", {84, 8, 250, 28}, 26, ui::ink, juce::Justification::centredLeft, true);
-    ui::text(g, "VICANEK MATCHED ANALOG FILTER ENGINE", {86, 36, 250, 16}, 11, ui::copper);
-    ui::text(g, "Scale", {742, 22, 36, 24}, 11, ui::muted);
-    ui::text(g, "Out", {900, 22, 42, 24}, 11, ui::muted, juce::Justification::centredRight);
-    ui::text(g, "Dynamic threshold", {984, 70, 152, 14}, 11, ui::muted);
-    ui::text(g, "Alan Marcero", {25, 876, 220, 15}, 10, ui::muted);
-    ui::text(g, "A4", {25, 846, 24, 24}, 12, ui::muted, juce::Justification::centredLeft, true);
-    ui::text(g, "12-tone equal temperament   /   v" JucePlugin_VersionString, {660, 876, 476, 15}, 10, ui::muted, juce::Justification::centredRight);
+    ui::text(g, "VICANEK MATCHED ANALOG FILTER ENGINE", {86, 36, 256, 17}, 12, ui::copper);
+    ui::text(g, "Scale", {723, 22, 36, 24}, 12, ui::ink.withAlpha(0.75f));
+    ui::text(g, "Out", {898, 22, 28, 24}, 12, ui::ink.withAlpha(0.75f), juce::Justification::centredRight);
+    ui::text(g, "Dynamic threshold", {948, 68, 188, 16}, 12, ui::ink.withAlpha(0.75f));
+    ui::text(g, "Alan Marcero", {25, 873, 220, 17}, 12, ui::ink.withAlpha(0.68f));
+    ui::text(g, "A4", {25, 846, 20, 24}, 12, ui::ink.withAlpha(0.75f), juce::Justification::centredLeft, true);
+    ui::text(g, "12-tone equal temperament / v" JucePlugin_VersionString, {660, 873, 476, 17}, 12, ui::ink.withAlpha(0.68f), juce::Justification::centredRight);
 }
 TuningFork::TuningFork(TunerProcessor& p) : processor(p), drawable(juce::Drawable::createFromImageData(BinaryData::tuningfork_svg, BinaryData::tuningfork_svgSize)) {
     setInterceptsMouseClicks(false, false);
@@ -97,10 +97,10 @@ TunerEditor::TunerEditor(TunerProcessor& p)
     dynThreshold.setSliderStyle(juce::Slider::LinearHorizontal); dynThreshold.setTextBoxStyle(juce::Slider::TextBoxRight, false, 62, 24);
     dynThreshold.setDoubleClickReturnValue(true, -24);
     scale.setComponentID("scale");
-    scale.setSliderStyle(juce::Slider::LinearHorizontal); scale.setTextBoxStyle(juce::Slider::TextBoxRight, false, 52, 24);
+    scale.setSliderStyle(juce::Slider::LinearHorizontal); scale.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 24);
     scale.setDoubleClickReturnValue(true, 100); scale.setTooltip("Global EQ gain scale (0% flat to 200% exaggerated)");
     output.setComponentID("output");
-    output.setSliderStyle(juce::Slider::LinearHorizontal); output.setTextBoxStyle(juce::Slider::TextBoxRight, false, 62, 24);
+    output.setSliderStyle(juce::Slider::LinearHorizontal); output.setTextBoxStyle(juce::Slider::TextBoxRight, false, 58, 24);
     output.setDoubleClickReturnValue(true, 0); output.setTooltip("Output trim");
     snapAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "snap", snap);
     flatsAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, "flats", flats);
@@ -113,7 +113,7 @@ TunerEditor::TunerEditor(TunerProcessor& p)
     scaleAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "scale", scale);
     outputAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "output", output);
     reference.setComponentID("a4");
-    reference.setSliderStyle(juce::Slider::LinearHorizontal); reference.setTextBoxStyle(juce::Slider::TextBoxRight, false, 66, 22);
+    reference.setSliderStyle(juce::Slider::LinearHorizontal); reference.setTextBoxStyle(juce::Slider::TextBoxRight, false, 62, 22);
     reference.setTooltip("Tuning reference: the frequency of A4. Notes, snapping and cents follow it.");
     referenceAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "a4", reference);
     for (juce::Component* c : std::initializer_list<juce::Component*>{&graph, &piano, &suite, &qMode, &dynThreshold, &scale, &output, &reference, &selectedLabel, &rangeLabel, &octaveDown, &octaveUp}) content.addAndMakeVisible(c);
@@ -214,20 +214,20 @@ void TunerEditor::resized() {
     content.setBounds(0, 0, designWidth, designHeight);
     content.setTransform(juce::RectanglePlacement(juce::RectanglePlacement::centred).getTransformToFit(content.getLocalBounds().toFloat(), getLocalBounds().toFloat()));
     processor.editorWidth = getWidth();
-    faceplate.setBounds(content.getLocalBounds()); fork.setBounds(20, 8, 56, 56); meter.setBounds(944, 54, 122, 11);
-    snap.setBounds(348, 16, 114, 40); flats.setBounds(468, 16, 86, 40);
-    soloSelected.setBounds(560, 16, 86, 40); autoGain.setBounds(652, 16, 86, 40);
-    scale.setBounds(778, 18, 116, 36);
-    output.setBounds(944, 18, 122, 36);
-    bypass.setBounds(1072, 16, 68, 40);
-    suite.setBounds(24, 70, 700, 40);
-    phaseComp.setBounds(732, 70, 100, 40); qMode.setBounds(840, 70, 140, 40);
-    dynThreshold.setBounds(984, 84, 152, 26);
+    faceplate.setBounds(content.getLocalBounds()); fork.setBounds(20, 8, 56, 56); meter.setBounds(930, 54, 136, 11);
+    snap.setBounds(348, 16, 110, 40); flats.setBounds(463, 16, 80, 40);
+    soloSelected.setBounds(548, 16, 80, 40); autoGain.setBounds(633, 16, 80, 40);
+    scale.setBounds(760, 18, 134, 36);
+    output.setBounds(930, 18, 136, 36);
+    bypass.setBounds(1072, 16, 66, 40);
+    suite.setBounds(24, 70, 664, 40);
+    phaseComp.setBounds(696, 70, 96, 40); qMode.setBounds(800, 70, 140, 40);
+    dynThreshold.setBounds(948, 84, 188, 26);
     graph.setBounds(24, 118, 1112, 228);
     for (int i = 0; i < 5; ++i) panels[static_cast<size_t>(i)]->setBounds(24 + i * 224, 354, 216, 400);
     selectedLabel.setBounds(25, 760, 205, 20); rangeLabel.setBounds(25, 780, 205, 16);
     octaveDown.setBounds(25, 800, 90, 40); octaveUp.setBounds(123, 800, 90, 40);
-    reference.setBounds(50, 846, 182, 24);
+    reference.setBounds(45, 846, 189, 24);
     piano.setBounds(240, 760, 896, 110);
     lockOverlay.setBounds(content.getLocalBounds());
 }

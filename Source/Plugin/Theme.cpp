@@ -124,6 +124,7 @@ void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, floa
         const auto area = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y), static_cast<float>(w), static_cast<float>(h)).reduced(0.5f);
         juce::Path outline; outline.addRoundedRectangle(area, 4);
         g.setColour(field); g.fillPath(outline);
+        const auto trackArea = juce::Rectangle<float>(area.getX() + 6.0f, area.getBottom() - 6.0f, area.getWidth() - 12.0f, 3.0f);
         {
             // A range across zero fills from zero, so 0 dB draws empty.
             auto zero = area.getX();
@@ -132,23 +133,29 @@ void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, floa
             g.reduceClipRegion(outline);
             g.setColour(slider.findColour(juce::Slider::trackColourId).withMultipliedAlpha(slider.isEnabled() ? 1.0f : 0.25f));
             g.fillRect(juce::Rectangle<float>(std::min(zero, sliderPos), area.getY(), std::abs(sliderPos - zero), area.getHeight()));
-            g.setColour(muted.withAlpha(slider.isEnabled() ? 0.45f : 0.15f));
-            g.fillRect(zero - 0.5f, area.getBottom() - 5.0f, 1.0f, 4.0f);
-            g.setColour(ink.withAlpha(slider.isEnabled() ? 0.7f : 0.25f));
-            g.fillRect(sliderPos - 1.0f, area.getBottom() - 6.0f, 2.0f, 5.0f);
+            // Resting track cue so zero-valued bars still read as draggable controls.
+            g.setColour(muted.withAlpha(slider.isEnabled() ? 0.26f : 0.1f));
+            g.fillRoundedRectangle(trackArea, 1.5f);
+            if (slider.getMinimum() < 0) {
+                g.setColour(muted.withAlpha(slider.isEnabled() ? 0.6f : 0.2f));
+                g.fillRect(zero - 0.5f, area.getBottom() - 8.0f, 1.0f, 6.0f);
+            }
+            const float thumbX = juce::jlimit(trackArea.getX(), trackArea.getRight(), sliderPos);
+            g.setColour(ink.withAlpha(slider.isEnabled() ? 0.85f : 0.25f));
+            g.fillRoundedRectangle(thumbX - 2.0f, area.getBottom() - 7.5f, 4.0f, 6.0f, 1.5f);
         }
         const bool focus = slider.hasKeyboardFocus(false);
-        g.setColour(focus ? ink : muted.withAlpha(0.2f));
+        g.setColour(focus ? ink : muted.withAlpha(slider.isEnabled() ? 0.38f : 0.16f));
         g.strokePath(outline, juce::PathStrokeType(focus ? 2.0f : 1.0f));
-        text(g, slider.getName(), area.withHeight(16).withTrimmedLeft(6), 10, muted);
+        text(g, slider.getName(), area.withHeight(16).withTrimmedLeft(6), 10.5f, muted.brighter(0.15f));
         return;
     }
     const auto cy = static_cast<float>(y) + static_cast<float>(h) / 2;
-    g.setColour(juce::Colour(0xff3b4650)); g.fillRoundedRectangle(static_cast<float>(x), cy - 1.5f, static_cast<float>(w), 3, 1.5f);
+    g.setColour(juce::Colour(0xff4a5864)); g.fillRoundedRectangle(static_cast<float>(x), cy - 2.0f, static_cast<float>(w), 4.0f, 2.0f);
     auto accent = slider.findColour(juce::Slider::rotarySliderFillColourId);
     g.setColour(accent.withMultipliedAlpha(slider.isEnabled() ? 1.0f : 0.25f));
-    g.fillRoundedRectangle(static_cast<float>(x), cy - 1.5f, std::max(0.0f, sliderPos - x), 3, 1.5f);
-    g.fillEllipse(sliderPos - 5, cy - 5, 10, 10);
+    g.fillRoundedRectangle(static_cast<float>(x), cy - 2.0f, std::max(0.0f, sliderPos - x), 4.0f, 2.0f);
+    g.fillEllipse(sliderPos - 5.5f, cy - 5.5f, 11.0f, 11.0f);
     if (slider.hasKeyboardFocus(false)) {
         g.setColour(ink);
         g.drawRoundedRectangle(juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y), static_cast<float>(w), static_cast<float>(h)).reduced(0.5f), 4.0f, 1.5f);
@@ -181,12 +188,12 @@ void Theme::drawComboBox(juce::Graphics& g, int w, int h, bool, int, int, int, i
     juce::Path arrow; const float xx = w - 15.0f, yy = h / 2.0f;
     arrow.startNewSubPath(xx - 3, yy - 2); arrow.lineTo(xx, yy + 1); arrow.lineTo(xx + 3, yy - 2);
     g.setColour(muted.withAlpha(box.isEnabled() ? 1.0f : 0.2f)); g.strokePath(arrow, juce::PathStrokeType(1.2f));
-    if (box.getName().isNotEmpty()) text(g, box.getName(), {6, 3, w - 12.0f, 12}, 10, muted);
+    if (box.getName().isNotEmpty()) text(g, box.getName(), {6, 2, w - 12.0f, 14}, 11.5f, ink.withAlpha(box.isEnabled() ? 0.72f : 0.3f));
 }
 // A named box shows its name as a caption above the value.
 void Theme::positionComboBoxText(juce::ComboBox& box, juce::Label& label) {
     juce::LookAndFeel_V4::positionComboBoxText(box, label);
-    if (box.getName().isNotEmpty()) label.setBounds(label.getBounds().withTrimmedTop(12));
+    if (box.getName().isNotEmpty()) label.setBounds(label.getBounds().withTrimmedTop(13));
 }
 juce::Font Theme::getComboBoxFont(juce::ComboBox& box) { return font(box.getComponentID().endsWith(".note") ? 32.0f : 14.0f, box.getComponentID().endsWith(".note")); }
 }

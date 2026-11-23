@@ -43,7 +43,7 @@ private:
     TuningFork fork;
     ui::LevelMeter meter;
     juce::TextButton snap {"Snap to notes"}, flats {"Use flats"}, bypass {"Bypass"}, octaveDown {"- Octave"}, octaveUp {"+ Octave"};
-    juce::TextButton autoGain {"Auto Gain"}, soloSelected {"Solo Band"}, phaseComp {"Phase Align"};
+    juce::TextButton autoGain {"Auto gain"}, soloSelected {"Solo band"}, phaseComp {"Phase align"};
     juce::ComboBox qMode;
     juce::Slider output, reference, scale, dynThreshold;
     juce::Label selectedLabel, rangeLabel;
