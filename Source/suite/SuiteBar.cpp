@@ -10,6 +10,13 @@ public:
         search.setTextToShowWhenEmpty("Search presets", ui::muted);
         search.setComponentID("presetSearch");
         search.onTextChange = [this] { reload(); };
+        nameInput.setComponentID("presetNameInput");
+        nameInput.setTitle("Preset name");
+        nameInput.setTextToShowWhenEmpty("Preset name", ui::muted);
+        nameInput.onReturnKey = [this] { commitName(); };
+        nameInput.onEscapeKey = [this] { cancelName(); };
+        nameInput.onTextChange = [this] { disarm(); };
+        addChildComponent(nameInput);
         list.setComponentID("presetList");
         list.setRowHeight(40);
         list.setColour(juce::ListBox::backgroundColourId, ui::panel);
@@ -26,7 +33,7 @@ public:
         loadButton.onClick = [this] { loadSelected(); };
         saveButton.onClick = [this] {
             if (armed == &saveButton) { const auto replace = pending; disarm(); replace(); return; }
-            askName("Save preset", "Saved presets go in your Documents folder.", "My preset", [this](const juce::String& name) {
+            askName("Type a preset name and press Enter (Esc to cancel).", "My preset", [this](const juce::String& name) {
                 auto save = [this, name] {
                     if (!processor.savePreset(name)) { status.setText("That name is reserved or invalid.", juce::dontSendNotification); return; }
                     reload();
@@ -39,7 +46,7 @@ public:
         };
         renameButton.onClick = [this] {
             if (const auto* item = selected()) if (!item->factory)
-                askName("Rename preset", "Factory presets stay read-only.", item->name, [this, old = *item](const juce::String& name) {
+                askName("Type a new name and press Enter (Esc to cancel).", item->name, [this, old = *item](const juce::String& name) {
                     processor.presets().rename(old, name) ? reload() : status.setText("Could not rename that preset.", juce::dontSendNotification);
                 });
         };
@@ -59,13 +66,21 @@ public:
     ~Browser() override { setLookAndFeel(nullptr); }
     void resized() override {
         search.setBounds(8, 8, getWidth() - 16, 32);
-        list.setBounds(8, 48, getWidth() - 16, getHeight() - 148);
+        const int inputSpace = nameInput.isVisible() ? 36 : 0;
+        list.setBounds(8, 48, getWidth() - 16, getHeight() - 148 - inputSpace);
+        if (nameInput.isVisible()) nameInput.setBounds(8, getHeight() - 130, getWidth() - 16, 30);
         status.setBounds(8, getHeight() - 96, getWidth() - 16, 20);
         const int width = (getWidth() - 28) / 4;
         loadButton.setBounds(8, getHeight() - 68, width, 40);
         saveButton.setBounds(12 + width, getHeight() - 68, width, 40);
         renameButton.setBounds(16 + width * 2, getHeight() - 68, width, 40);
         deleteButton.setBounds(20 + width * 3, getHeight() - 68, width, 40);
+    }
+    // Replace and delete need a second click within 3 s.
+    void disarm() {
+        stopTimer();
+        armed = nullptr; pending = nullptr;
+        saveButton.setButtonText("Save"); deleteButton.setButtonText("Delete");
     }
     void paint(juce::Graphics& g) override {
         g.fillAll(ui::background);
@@ -79,9 +94,15 @@ private:
         const auto& item = rows.getReference(row);
         g.setColour(selectedRow ? ui::copper.withAlpha(0.16f) : juce::Colours::transparentBlack);
         g.fillRect(0, 0, width, height);
-        g.setColour(item.favorite ? ui::copper : ui::muted);
-        g.setFont(ui::font(16, true));
-        g.drawText(item.favorite ? "Fav" : "+", 0, 0, 40, height, juce::Justification::centred);
+        juce::Path star;
+        star.addStar({20.0f, static_cast<float>(height) * 0.5f}, 5, 3.6f, 8.0f, 0.0f);
+        if (item.favorite) {
+            g.setColour(ui::copper);
+            g.fillPath(star);
+        } else {
+            g.setColour(ui::muted.withAlpha(0.65f));
+            g.strokePath(star, juce::PathStrokeType(1.3f));
+        }
         g.setColour(ui::ink);
         g.setFont(ui::font(14, selectedRow));
         g.drawText(item.name, 44, 0, width - 150, height, juce::Justification::centredLeft);
@@ -96,6 +117,10 @@ private:
             reload();
             return;
         }
+        disarm();
+        updateActions();
+    }
+    void selectedRowsChanged(int) override {
         disarm();
         updateActions();
     }
@@ -123,35 +148,41 @@ private:
         processor.loadPreset(*item);
         status.setText(item->factory ? "Factory presets stay read-only." : "Loaded " + item->name + ".", juce::dontSendNotification);
     }
-    // Replace and delete need a second click within 3 s.
-    void disarm() {
-        stopTimer();
-        armed = nullptr; pending = nullptr;
-        saveButton.setButtonText("Save"); deleteButton.setButtonText("Delete");
-    }
     void timerCallback() override { disarm(); }
-    void askName(const juce::String& title, const juce::String& message, const juce::String& initial, std::function<void(const juce::String&)> done) {
-        auto* window = new juce::AlertWindow(title, message, juce::AlertWindow::NoIcon);
-        window->addTextEditor("name", initial, "Preset name");
-        window->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
-        window->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
-        window->setLookAndFeel(&getLookAndFeel());
-        juce::Component::SafePointer<Browser> self(this);
-        window->enterModalState(true, juce::ModalCallbackFunction::create([self, window, done](int result) {
-            const auto name = window->getTextEditorContents("name");
-            window->setLookAndFeel(nullptr);
-            if (result == 1 && self != nullptr) done(name);
-        }), true);
+    void askName(const juce::String& prompt, const juce::String& initial, std::function<void(const juce::String&)> done) {
+        disarm();
+        nameAction = std::move(done);
+        status.setText(prompt, juce::dontSendNotification);
+        nameInput.setText(initial, juce::dontSendNotification);
+        nameInput.setVisible(true);
+        resized();
+        nameInput.grabKeyboardFocus();
+        nameInput.selectAll();
+    }
+    void commitName() {
+        const auto name = nameInput.getText();
+        const auto action = std::move(nameAction);
+        nameAction = nullptr;
+        nameInput.setVisible(false);
+        resized();
+        if (action) action(name);
+    }
+    void cancelName() {
+        nameAction = nullptr;
+        nameInput.setVisible(false);
+        resized();
+        status.setText({}, juce::dontSendNotification);
     }
     TunerProcessor& processor;
     PresetStore& presets;
-    juce::TextEditor search;
+    juce::TextEditor search, nameInput;
     juce::ListBox list {"Presets", this};
     juce::TextButton loadButton {"Load"}, saveButton {"Save"}, renameButton {"Rename"}, deleteButton {"Delete"};
     juce::Label status;
     juce::Array<PresetStore::Item> rows;
     juce::TextButton* armed = nullptr;
     std::function<void()> pending;
+    std::function<void(const juce::String&)> nameAction;
 };
 }
 std::unique_ptr<juce::Component> createPresetBrowser(TunerProcessor& processor, juce::LookAndFeel& feel) { return std::make_unique<Browser>(processor, feel); }
@@ -206,11 +237,17 @@ void SuiteBar::resized() {
     nextButton.setBounds(presetButton.getRight() + 4, 0, 40, 40);
 }
 void SuiteBar::refresh() {
+    const bool slotBActive = compare.isB();
+    const auto name = processor.presetTitle();
+    if (slotBActive != lastSlotB || name != lastPresetTitle) {
+        lastSlotB = slotBActive;
+        lastPresetTitle = name;
+        if (auto* b = dynamic_cast<Browser*>(activeBrowser.getComponent())) b->disarm();
+    }
     undoButton.setEnabled(history.manager().canUndo());
     redoButton.setEnabled(history.manager().canRedo());
-    slotA.setToggleState(!compare.isB(), juce::dontSendNotification);
-    slotB.setToggleState(compare.isB(), juce::dontSendNotification);
-    const auto name = processor.presetTitle();
+    slotA.setToggleState(!slotBActive, juce::dontSendNotification);
+    slotB.setToggleState(slotBActive, juce::dontSendNotification);
     auto shown = name;
     if (name.length() > 24) shown = name.substring(0, 23) + "...";
     if (processor.presetEdited()) shown += " *";
@@ -222,6 +259,7 @@ void SuiteBar::openBrowser() {
     if (callout != nullptr) { callout->dismiss(); return; }
     auto content = createPresetBrowser(processor, getLookAndFeel());
     content->setSize(440, 460);
+    activeBrowser = content.get();
     auto& box = juce::CallOutBox::launchAsynchronously(std::move(content), presetButton.getScreenBounds(), nullptr);
     callout = &box;
 }

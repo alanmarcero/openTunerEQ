@@ -14,16 +14,32 @@ void drawPadlock(juce::Graphics& g, juce::Rectangle<float> box) {
     g.strokePath(shackle, juce::PathStrokeType(1.3f));
     g.fillRoundedRectangle(cx - 3.5f, box.getY() + 4.5f, 7.0f, 5.5f, 1.2f);
 }
+juce::String paramIdForComponent(const juce::Component& comp, const TunerProcessor& processor) {
+    const auto cid = comp.getComponentID();
+    if (cid.isEmpty()) return {};
+    if (cid.endsWith(".note") || cid.endsWith(".octave") || cid.endsWith(".down") || cid.endsWith(".up"))
+        return cid.upToLastOccurrenceOf(".", true, false) + "freq";
+    if (cid == "octaveDown" || cid == "octaveUp" || cid == "piano")
+        return params::bandId(processor.activeSelectedBand.load(), "freq");
+    if (processor.state.getParameter(cid) != nullptr)
+        return cid;
+    return {};
+}
 }
 void LockOverlay::paint(juce::Graphics& g) {
     auto* parent = getParentComponent();
     if (parent == nullptr) return;
     std::function<void(juce::Component&)> visit = [&](juce::Component& comp) {
         if (&comp == this || !comp.isVisible()) return;
-        const auto cid = comp.getComponentID();
-        if (cid.isNotEmpty() && processor.isParamLocked(cid)) {
+        const auto paramId = paramIdForComponent(comp, processor);
+        if (paramId.isNotEmpty() && processor.isParamLocked(paramId)) {
             const auto area = getLocalArea(&comp, comp.getLocalBounds()).toFloat();
-            const float rightInset = dynamic_cast<juce::ComboBox*>(&comp) != nullptr ? 18.0f : 3.0f;
+            float rightInset = 3.0f;
+            if (dynamic_cast<const juce::ComboBox*>(&comp) != nullptr)
+                rightInset = 18.0f;
+            else if (const auto* slider = dynamic_cast<const juce::Slider*>(&comp);
+                     slider != nullptr && slider->getTextBoxPosition() == juce::Slider::TextBoxRight)
+                rightInset = static_cast<float>(slider->getTextBoxWidth()) + 4.0f;
             drawPadlock(g, {area.getRight() - rightInset - 11.0f, area.getY() + 2.0f, 11.0f, 12.0f});
         }
         for (auto* child : comp.getChildren()) visit(*child);
@@ -110,6 +126,7 @@ TunerEditor::TunerEditor(TunerProcessor& p)
     }
     graph.onSelect = [this](int band) { select(band); };
     piano.onNote = [this](int midi) { panels[static_cast<size_t>(selected)]->chooseNote(midi); };
+    octaveDown.setComponentID("octaveDown"); octaveUp.setComponentID("octaveUp"); piano.setComponentID("piano");
     octaveDown.setTooltip("Tune the selected band down one octave");
     octaveUp.setTooltip("Tune the selected band up one octave");
     octaveDown.onClick = [this] { panels[static_cast<size_t>(selected)]->chooseNote(ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch()) - 12); };
@@ -146,6 +163,7 @@ void TunerEditor::select(int band) {
     processor.activeSelectedBand.store(band);
     graph.setSelected(band); piano.setSelected(band);
     for (int i = 0; i < 5; ++i) panels[static_cast<size_t>(i)]->setSelected(i == band);
+    lockOverlay.repaint();
     pendingRefresh.fetch_or(everything);
     timerCallback();
 }
@@ -196,7 +214,7 @@ void TunerEditor::resized() {
     content.setBounds(0, 0, designWidth, designHeight);
     content.setTransform(juce::RectanglePlacement(juce::RectanglePlacement::centred).getTransformToFit(content.getLocalBounds().toFloat(), getLocalBounds().toFloat()));
     processor.editorWidth = getWidth();
-    faceplate.setBounds(content.getLocalBounds()); fork.setBounds(20, 8, 56, 56); meter.setBounds(944, 56, 122, 5);
+    faceplate.setBounds(content.getLocalBounds()); fork.setBounds(20, 8, 56, 56); meter.setBounds(944, 54, 122, 11);
     snap.setBounds(348, 16, 114, 40); flats.setBounds(468, 16, 86, 40);
     soloSelected.setBounds(560, 16, 86, 40); autoGain.setBounds(652, 16, 86, 40);
     scale.setBounds(778, 18, 116, 36);
@@ -218,15 +236,9 @@ void TunerEditor::mouseDown(const juce::MouseEvent& e) {
     juce::String paramId;
     juce::Component* target = nullptr;
     for (auto* c = e.eventComponent; c != nullptr && c != &content; c = c->getParentComponent()) {
-        const auto cid = c->getComponentID();
-        if (cid.isEmpty()) continue;
-        if (cid.endsWith(".note") || cid.endsWith(".octave") || cid.endsWith(".down") || cid.endsWith(".up")) {
-            paramId = cid.upToLastOccurrenceOf(".", true, false) + "freq";
-            target = c;
-            break;
-        }
-        if (processor.state.getParameter(cid) != nullptr) {
-            paramId = cid;
+        const auto id = paramIdForComponent(*c, processor);
+        if (id.isNotEmpty()) {
+            paramId = id;
             target = c;
             break;
         }
@@ -253,6 +265,13 @@ void TunerEditor::mouseDown(const juce::MouseEvent& e) {
 bool TunerEditor::keyPressed(const juce::KeyPress& key) {
     const auto command = juce::ModifierKeys::commandModifier;
     if (dynamic_cast<juce::TextEditor*>(juce::Component::getCurrentlyFocusedComponent()) != nullptr) return false;
+    if (!key.getModifiers().isAnyModifierKeyDown()) {
+        const auto ch = key.getTextCharacter();
+        if (ch >= '1' && ch <= '5') {
+            select(ch - '1');
+            return true;
+        }
+    }
     if (key == juce::KeyPress('z', command, 0)) { processor.history().undo(); suite.refresh(); return true; }
     if (key == juce::KeyPress('z', command | juce::ModifierKeys::shiftModifier, 0)
         || key == juce::KeyPress('y', command, 0)) {

@@ -115,14 +115,14 @@ void ResponseGraph::paint(juce::Graphics& g) {
     g.setColour(juce::Colour(0xff0e151b).withAlpha(0.97f)); g.fillRoundedRectangle(area, 9);
     g.setColour(ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(area.reduced(0.5f), 9, 1);
     ui::text(g, "EQ response", {18, 8, 100, 20}, 13, ui::ink, juce::Justification::centredLeft, true);
-    juce::String caption = "Drag a band, Shift for fine / Scroll a band for Q / Double-click to bypass";
-    if (analyzerOn) caption = "Grey: tilted audio spectrum / White: EQ response";
-    if (analyzerOn && style == 2) caption = "Grey: tilted audio history, newest at top / White: EQ response";
+    juce::String caption = "Drag band (Shift: fine) / Scroll: Q / Dbl-click: bypass";
+    if (analyzerOn) caption = "Grey: tilted spectrum / White: EQ response";
+    if (analyzerOn && style == 2) caption = "History (newest top) / White: EQ response";
     if (hoverX >= 0) {
         const auto hz = frequencyAt(hoverX);
         caption = params::frequencyText(hz) + " / " + ote::noteName(ote::nearestNote(hz, processor.referencePitch()), processor.usesFlats());
-        if (analyzerOn) caption += " / " + juce::String(analyzer.levelAt(hz, tiltDbPerOctave), 1) + (afterEQ ? " dB tilted after EQ" : " dB tilted before EQ");
-        caption += " / Alt-click to tune";
+        if (analyzerOn) caption += " / " + juce::String(analyzer.levelAt(hz, tiltDbPerOctave), 1) + (afterEQ ? " dB (post)" : " dB (pre)");
+        caption += " / Alt-click: tune";
     }
     ui::text(g, caption, {124, 8, analyzerToggle.getX() - 132.0f, 20}, 11, ui::muted);
     if (analyzerOn) paintSpectrum(g);
@@ -270,8 +270,18 @@ void ResponseGraph::paintSpectrum(juce::Graphics& g) {
         g.fillPath(fill); g.setColour(colour.withAlpha(0.75f)); g.strokePath(line, juce::PathStrokeType(1.3f));
     }
 }
-void ResponseGraph::mouseMove(const juce::MouseEvent& e) { hoverX = plot().contains(e.position) ? e.position.x : -1; repaint(); }
-void ResponseGraph::mouseExit(const juce::MouseEvent&) { hoverX = -1; repaint(); }
+void ResponseGraph::mouseMove(const juce::MouseEvent& e) {
+    hoverX = plot().contains(e.position) ? e.position.x : -1;
+    if (nodeAt(e.position) >= 0) setMouseCursor(juce::MouseCursor::DraggingHandCursor);
+    else if (e.mods.isAltDown() && hoverX >= 0) setMouseCursor(juce::MouseCursor::CrosshairCursor);
+    else setMouseCursor(juce::MouseCursor::NormalCursor);
+    repaint();
+}
+void ResponseGraph::mouseExit(const juce::MouseEvent&) {
+    hoverX = -1;
+    setMouseCursor(juce::MouseCursor::NormalCursor);
+    repaint();
+}
 int ResponseGraph::nodeAt(juce::Point<float> position) const {
     int nearest = -1;
     float distance = 28;
@@ -285,6 +295,41 @@ int ResponseGraph::nodeAt(juce::Point<float> position) const {
 }
 void ResponseGraph::mouseDown(const juce::MouseEvent& e) {
     endGesture();
+    if (e.mods.isPopupMenu()) {
+        const auto band = nodeAt(e.position);
+        if (band < 0) return;
+        selected = band; if (onSelect) onSelect(selected);
+        const auto b = processor.readSettings().bands[static_cast<size_t>(band)];
+        std::vector<juce::String> ids {params::bandId(band, "freq")};
+        if (ote::usesGain(b.shape)) ids.push_back(params::bandId(band, "gain"));
+        if (ote::usesQ(b)) ids.push_back(params::bandId(band, "q"));
+        juce::PopupMenu menu;
+        int itemId = 1;
+        for (const auto& id : ids) {
+            if (auto* param = processor.state.getParameter(id)) {
+                const bool locked = processor.isParamLocked(id);
+                menu.addItem(itemId, (locked ? "Unlock " : "Lock ") + param->getName(64));
+            }
+            ++itemId;
+        }
+        const int unlockAllId = itemId;
+        if (processor.hasLockedParams()) {
+            menu.addSeparator();
+            menu.addItem(unlockAllId, "Unlock all parameters");
+        }
+        juce::Component::SafePointer<ResponseGraph> safe(this);
+        const auto screenPos = e.getScreenPosition();
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetScreenArea({screenPos.x, screenPos.y, 1, 1}),
+                           [safe, ids, unlockAllId](int choice) {
+                               if (safe == nullptr || choice <= 0) return;
+                               if (choice == unlockAllId) safe->processor.unlockAllParams();
+                               else if (choice <= static_cast<int>(ids.size())) {
+                                   const auto& id = ids[static_cast<size_t>(choice - 1)];
+                                   safe->processor.setParamLocked(id, !safe->processor.isParamLocked(id));
+                               }
+                           });
+        return;
+    }
     if (e.mods.isAltDown() && plot().contains(e.position)) {
         const auto hz = ote::effectiveFrequency(frequencyAt(e.position.x), processor.readSettings().snap, processor.displaySampleRate(), processor.referencePitch());
         processor.setParameter(params::bandId(selected, "freq"), static_cast<float>(hz));
@@ -332,9 +377,14 @@ void ResponseGraph::mouseDoubleClick(const juce::MouseEvent& e) {
 void ResponseGraph::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) {
     const auto band = nodeAt(e.position);
     if (band < 0 || !ote::usesQ(processor.readSettings().bands[static_cast<size_t>(band)])) { juce::Component::mouseWheelMove(e, wheel); return; }
+    if (wheel.deltaY == 0.0f) return;
     if (band != selected) { selected = band; if (onSelect) onSelect(band); }
     const auto current = processor.readSettings().bands[static_cast<size_t>(band)].q;
-    processor.setParameter(params::bandId(band, "q"), static_cast<float>(std::clamp(current * std::exp(wheel.deltaY * 2), 0.1, 18.0)));
+    const double rawDelta = current * (std::exp(std::clamp(static_cast<double>(wheel.deltaY), -0.5, 0.5) * 2.0) - 1.0);
+    const double minStep = wheel.deltaY > 0.0f ? 0.01 : -0.01;
+    const double step = std::abs(rawDelta) < 0.01 ? minStep : std::clamp(rawDelta, -2.0, 2.0);
+    processor.setParameter(params::bandId(band, "q"), static_cast<float>(std::clamp(current + step, 0.1, 18.0)));
+    repaint();
 }
 namespace {
 bool blackKey(int midi) { const auto p = midi % 12; return p == 1 || p == 3 || p == 6 || p == 8 || p == 10; }
@@ -349,15 +399,22 @@ juce::Rectangle<float> PianoStrip::keyBounds(int offset) const {
 void PianoStrip::paint(juce::Graphics& g) {
     // Scroll only when the note leaves the keys, so a clicked key stays under the cursor.
     const auto current = ote::nearestNote(processor.bandFrequency(selected), processor.referencePitch());
-    if (first < 0 || current < first || current >= first + keyCount) first = juce::jlimit(12, 96, (current / 12 - 1) * 12);
+    if (first < 0 || selected != lastTrackedBand || current != lastTrackedNote) {
+        lastTrackedBand = selected;
+        lastTrackedNote = current;
+        if (first < 0 || current < first || current >= first + keyCount)
+            first = juce::jlimit(12, 96, (current / 12 - 1) * 12);
+    }
     const auto colour = ui::bandColours[static_cast<size_t>(selected)];
     for (bool black : {false, true}) for (int i = 0; i < keyCount; ++i) {
         if (blackKey(i) != black) continue;
         auto rect = keyBounds(i);
         const int midi = first + i; const auto hz = ote::noteFrequency(midi, processor.referencePitch());
         const bool valid = hz >= 20 && hz <= std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49);
-        g.setColour(midi == current ? colour : black ? juce::Colour(0xff11191f) : juce::Colour(0xffb9bdbb));
-        if (!valid) g.setColour(black ? juce::Colour(0xff0f151a) : juce::Colour(0xff454c50));
+        auto fill = midi == current ? colour : black ? juce::Colour(0xff11191f) : juce::Colour(0xffb9bdbb);
+        if (!valid) fill = black ? juce::Colour(0xff0f151a) : juce::Colour(0xff454c50);
+        else if (midi != current && midi == hoverNote) fill = fill.interpolatedWith(colour, 0.25f);
+        g.setColour(fill);
         g.fillRoundedRectangle(rect, 3);
         g.setColour(juce::Colours::black.withAlpha(0.5f)); g.drawRoundedRectangle(rect, 3, 1);
         ui::text(g, juce::String(ote::noteName(midi, processor.usesFlats())), rect.withTrimmedTop(rect.getHeight() - 19), black ? 8.0f : 10.0f,
@@ -376,13 +433,43 @@ void PianoStrip::paint(juce::Graphics& g) {
         g.setColour(ui::background); g.drawEllipse(dot, 1.2f);
     }
 }
+int PianoStrip::noteAt(juce::Point<float> pos) const {
+    if (first < 0) return -1;
+    for (bool black : {true, false}) {
+        for (int i = 0; i < keyCount; ++i) {
+            if (blackKey(i) != black || !keyBounds(i).contains(pos)) continue;
+            const auto midi = first + i;
+            const auto hz = ote::noteFrequency(midi, processor.referencePitch());
+            if (hz >= 20 && hz <= std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49)) return midi;
+            return -1;
+        }
+    }
+    return -1;
+}
 // A click maps to the keys as last painted.
 void PianoStrip::mouseDown(const juce::MouseEvent& e) {
-    if (first < 0) return;
-    for (bool black : {true, false}) for (int i = 0; i < keyCount; ++i) {
-        if (blackKey(i) != black || !keyBounds(i).contains(e.position)) continue;
-        const auto midi = first + i; const auto hz = ote::noteFrequency(midi, processor.referencePitch());
-        if (hz >= 20 && hz <= std::min(ote::maxFrequency, processor.displaySampleRate() * 0.49) && onNote) onNote(midi);
-        return;
-    }
+    if (e.mods.isPopupMenu()) return;
+    const int midi = noteAt(e.position);
+    if (midi >= 0 && onNote) { lastDraggedNote = midi; onNote(midi); }
+}
+void PianoStrip::mouseDrag(const juce::MouseEvent& e) {
+    if (e.mods.isPopupMenu()) return;
+    const int midi = noteAt(e.position);
+    if (midi >= 0 && midi != lastDraggedNote && onNote) { lastDraggedNote = midi; onNote(midi); }
+}
+void PianoStrip::mouseMove(const juce::MouseEvent& e) {
+    const int next = noteAt(e.position);
+    if (next == hoverNote) return;
+    hoverNote = next;
+    repaint();
+}
+void PianoStrip::mouseExit(const juce::MouseEvent&) {
+    if (hoverNote < 0) return;
+    hoverNote = -1;
+    repaint();
+}
+void PianoStrip::mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails& wheel) {
+    if (first < 0 || wheel.deltaY == 0.0f) return;
+    first = juce::jlimit(12, 96, first + (wheel.deltaY > 0.0f ? 12 : -12));
+    repaint();
 }

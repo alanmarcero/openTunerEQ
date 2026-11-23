@@ -59,11 +59,16 @@ public:
     explicit PianoStrip(TunerProcessor& p) : processor(p) { setName("Piano note selector"); }
     void paint(juce::Graphics&) override;
     void mouseDown(const juce::MouseEvent&) override;
+    void mouseDrag(const juce::MouseEvent&) override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
+    void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     void setSelected(int band) { selected = band; repaint(); }
     std::function<void(int)> onNote;
 private:
     static constexpr int keyCount = 48;
     TunerProcessor& processor;
-    int selected = 0, first = -1;
+    int selected = 0, first = -1, hoverNote = -1, lastDraggedNote = -1, lastTrackedBand = -1, lastTrackedNote = -1;
+    int noteAt(juce::Point<float>) const;
     juce::Rectangle<float> keyBounds(int offset) const;
 };

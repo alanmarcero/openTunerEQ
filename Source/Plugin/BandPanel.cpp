@@ -128,8 +128,11 @@ void BandPanel::refresh() {
     ui::showActive(dynamic, "Dynamic range. The band adds this much gain as its note rises above the dynamic threshold. Negative tames resonances.", bandOff);
     ui::showActive(drive, "Analog-style saturation of this band's boost or cut.", hint(ote::changesGain(b), "Set a gain or dynamic range to use it."));
     for (auto* label : {&hz, &cents}) label->setAlpha(b.enabled ? 1.0f : ui::inactiveAlpha);
-    slope.setVisible(!ote::usesGain(b.shape)); dynamic.setVisible(ote::usesGain(b.shape)); drive.setVisible(ote::usesGain(b.shape));
-    level.setVisible(b.enabled && ote::usesDynamics(b)); level.setMarker(static_cast<float>(settings.dynamicThresholdDb));
+    const bool hasGain = ote::usesGain(b.shape);
+    slope.setVisible(!hasGain); dynamic.setVisible(hasGain); drive.setVisible(hasGain);
+    level.setVisible(hasGain);
+    level.setAlpha(b.enabled && ote::usesDynamics(b) ? 1.0f : ui::inactiveAlpha);
+    level.setMarker(static_cast<float>(settings.dynamicThresholdDb));
     updating = false;
     // The panel paints only the on state and the selection.
     if (b.enabled == bandEnabled) return;
@@ -142,25 +145,25 @@ void BandPanel::paint(juce::Graphics& g) {
     auto area = getLocalBounds().toFloat().reduced(1);
     g.setColour(ui::panel.withAlpha(0.97f)); g.fillRoundedRectangle(area, 9);
     g.setColour(selected ? colour.withAlpha(0.8f) : ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(area, 9, selected ? 1.5f : 1.0f);
-    g.setColour(colour.withAlpha(bandEnabled ? 1.0f : 0.25f)); g.fillRoundedRectangle(15, 18, 6, 6, 3);
-    ui::text(g, "Band " + juce::String(index + 1), {28, 10, 95, 22}, 13, ui::ink, juce::Justification::centredLeft, true);
+    g.setColour(colour.withAlpha(bandEnabled ? 1.0f : 0.25f)); g.fillRoundedRectangle(15, 23, 6, 6, 3);
+    ui::text(g, "Band " + juce::String(index + 1), {28, 15, 95, 22}, 13, ui::ink, juce::Justification::centredLeft, true);
     const auto caption = ui::muted.withMultipliedAlpha(bandEnabled ? 1.0f : ui::inactiveAlpha);
-    ui::text(g, "Place", {16, 32, 70, 14}, 12, caption);
-    ui::text(g, "Note", {16, 90, 100, 16}, 12, caption);
-    ui::text(g, "Octave", {153, 90, 50, 16}, 12, caption);
-    ui::text(g, "Gain", {15, 198, 83, 16}, 12, caption, juce::Justification::centred);
-    ui::text(g, "Q / width", {115, 198, 83, 16}, 12, caption, juce::Justification::centred);
+    ui::text(g, "Place", {16, 36, 70, 13}, 12, caption);
+    ui::text(g, "Note", {16, 92, 100, 14}, 12, caption);
+    ui::text(g, "Octave", {153, 92, 50, 14}, 12, caption);
+    ui::text(g, "Gain", {15, 213, 83, 15}, 12, caption, juce::Justification::centred);
+    ui::text(g, "Q / width", {115, 213, 83, 15}, 12, caption, juce::Justification::centred);
 }
 void BandPanel::resized() {
     const auto w = getWidth();
-    enabled.setBounds(w - 90, 2, 75, 40);
-    placement.setBounds(14, 46, w - 28, 40);
-    note.setBounds(14, 106, 119, 40); octave.setBounds(w - 63, 106, 48, 40);
-    hz.setBounds(50, 148, w - 100, 20); cents.setBounds(50, 166, w - 100, 16);
-    down.setBounds(7, 146, 40, 40); up.setBounds(w - 47, 146, 40, 40);
-    frequency.setBounds(14, 186, w - 28, 24);
-    gain.setBounds(12, 214, (w - 28) / 2, 78); q.setBounds(w / 2 + 2, 214, (w - 28) / 2, 78);
-    shape.setBounds(14, 300, w - 28, 40); slope.setBounds(14, 348, w - 28, 40);
+    enabled.setBounds(w - 90, 6, 75, 40);
+    placement.setBounds(14, 50, w - 28, 40);
+    note.setBounds(14, 107, 119, 40); octave.setBounds(w - 63, 107, 48, 40);
+    hz.setBounds(50, 151, w - 100, 20); cents.setBounds(50, 172, w - 100, 16);
+    down.setBounds(7, 150, 40, 40); up.setBounds(w - 47, 150, 40, 40);
+    frequency.setBounds(14, 191, w - 28, 20);
+    gain.setBounds(12, 228, (w - 28) / 2, 72); q.setBounds(w / 2 + 2, 228, (w - 28) / 2, 72);
+    shape.setBounds(14, 304, w - 28, 40); slope.setBounds(14, 350, w - 28, 40);
     const auto bar = (w - 44) / 2;
-    dynamic.setBounds(14, 348, bar, 40); level.setBounds(18 + bar, 350, 8, 36); drive.setBounds(w - 14 - bar, 348, bar, 40);
+    dynamic.setBounds(14, 350, bar, 40); level.setBounds(18 + bar, 352, 8, 36); drive.setBounds(w - 14 - bar, 350, bar, 40);
 }

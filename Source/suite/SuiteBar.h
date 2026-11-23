@@ -19,6 +19,9 @@ private:
     juce::TextButton undoButton {"Undo"}, redoButton {"Redo"}, slotA {"A"}, slotB {"B"};
     juce::TextButton copyAtoB {"A to B"}, copyBtoA {"B to A"}, presetButton {"Presets"}, previousButton {"<"}, nextButton {">"};
     juce::Component::SafePointer<juce::CallOutBox> callout;
+    juce::Component::SafePointer<juce::Component> activeBrowser;
+    bool lastSlotB = false;
+    juce::String lastPresetTitle;
     void openBrowser();
 };
 }

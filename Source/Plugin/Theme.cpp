@@ -3,7 +3,7 @@
 namespace ui {
 juce::Font font(float size, bool bold) { return juce::Font(juce::FontOptions(size, bold ? juce::Font::bold : juce::Font::plain)); }
 void text(juce::Graphics& g, const juce::String& value, juce::Rectangle<float> bounds, float size, juce::Colour colour, juce::Justification alignment, bool bold) {
-    g.setColour(colour); g.setFont(font(size, bold)); g.drawText(value, bounds, alignment, false);
+    g.setColour(colour); g.setFont(font(size, bold)); g.drawText(value, bounds, alignment, true);
 }
 void showActive(juce::Component& control, const juce::String& tooltip, const juce::String& hint) {
     auto tip = tooltip;
@@ -41,20 +41,23 @@ void LevelMeter::mouseDown(const juce::MouseEvent&) {
 }
 void LevelMeter::paint(juce::Graphics& g) {
     // A wide meter rotates a quarter turn, so up becomes right.
+    const bool horizontal = getWidth() > getHeight();
     auto length = static_cast<float>(getHeight()), breadth = static_cast<float>(getWidth());
-    if (getWidth() > getHeight()) {
+    if (horizontal) {
         std::swap(length, breadth);
         g.addTransform(juce::AffineTransform::rotation(juce::MathConstants<float>::halfPi).translated(static_cast<float>(getWidth()), 0));
     }
+    const float barWidth = horizontal ? std::min(5.0f, breadth) : breadth;
+    const float barX = (breadth - barWidth) * 0.5f;
     // -60 dBFS is the bottom. The top 3 px hold the clip light.
     auto top = [length](float gain) { return 3 + (length - 3) * (1 - juce::jlimit(0.0f, 1.0f, juce::Decibels::gainToDecibels(gain, -60.0f) / 60 + 1)); };
-    g.setColour(muted.withAlpha(0.2f)); g.fillRect(0.0f, 0.0f, breadth, length);
+    g.setColour(muted.withAlpha(0.2f)); g.fillRect(barX, 0.0f, barWidth, length);
     g.setColour(warning);
-    if (clipped) g.fillRect(0.0f, 0.0f, breadth, 3.0f);
-    g.setColour(colour); g.fillRect(0.0f, top(level), breadth, length - top(level));
-    if (held > 0) g.fillRect(0.0f, top(held), breadth, 1.5f);
+    if (clipped) g.fillRect(barX, 0.0f, barWidth, 3.0f);
+    g.setColour(colour); g.fillRect(barX, top(level), barWidth, length - top(level));
+    if (held > 0) g.fillRect(barX, top(held), barWidth, 1.5f);
     g.setColour(ink.withAlpha(0.8f));
-    if (marker) g.fillRect(0.0f, top(juce::Decibels::decibelsToGain(*marker)), breadth, 1.5f);
+    if (marker) g.fillRect(barX, top(juce::Decibels::decibelsToGain(*marker)), barWidth, 1.5f);
 }
 Theme::Theme() {
     setColour(juce::Slider::textBoxTextColourId, ink);
@@ -111,6 +114,10 @@ void Theme::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, floa
     const auto angle = start + position * (end - start) - juce::MathConstants<float>::halfPi;
     const auto direction = juce::Point<float>(std::cos(angle), std::sin(angle));
     g.setColour(accent); g.drawLine({centre + direction * radius * 0.42f, centre + direction * radius * 0.68f}, 2.3f);
+    if (slider.hasKeyboardFocus(false)) {
+        g.setColour(ink);
+        g.drawRoundedRectangle(juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y), static_cast<float>(w), static_cast<float>(h)).reduced(1.0f), 4.0f, 1.5f);
+    }
 }
 void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, float sliderPos, float, float, const juce::Slider::SliderStyle style, juce::Slider& slider) {
     if (style == juce::Slider::LinearBar) {
@@ -125,8 +132,14 @@ void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, floa
             g.reduceClipRegion(outline);
             g.setColour(slider.findColour(juce::Slider::trackColourId).withMultipliedAlpha(slider.isEnabled() ? 1.0f : 0.25f));
             g.fillRect(juce::Rectangle<float>(std::min(zero, sliderPos), area.getY(), std::abs(sliderPos - zero), area.getHeight()));
+            g.setColour(muted.withAlpha(slider.isEnabled() ? 0.45f : 0.15f));
+            g.fillRect(zero - 0.5f, area.getBottom() - 5.0f, 1.0f, 4.0f);
+            g.setColour(ink.withAlpha(slider.isEnabled() ? 0.7f : 0.25f));
+            g.fillRect(sliderPos - 1.0f, area.getBottom() - 6.0f, 2.0f, 5.0f);
         }
-        g.setColour(muted.withAlpha(0.2f)); g.strokePath(outline, juce::PathStrokeType(1));
+        const bool focus = slider.hasKeyboardFocus(false);
+        g.setColour(focus ? ink : muted.withAlpha(0.2f));
+        g.strokePath(outline, juce::PathStrokeType(focus ? 2.0f : 1.0f));
         text(g, slider.getName(), area.withHeight(16).withTrimmedLeft(6), 10, muted);
         return;
     }
@@ -136,6 +149,10 @@ void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, floa
     g.setColour(accent.withMultipliedAlpha(slider.isEnabled() ? 1.0f : 0.25f));
     g.fillRoundedRectangle(static_cast<float>(x), cy - 1.5f, std::max(0.0f, sliderPos - x), 3, 1.5f);
     g.fillEllipse(sliderPos - 5, cy - 5, 10, 10);
+    if (slider.hasKeyboardFocus(false)) {
+        g.setColour(ink);
+        g.drawRoundedRectangle(juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y), static_cast<float>(w), static_cast<float>(h)).reduced(0.5f), 4.0f, 1.5f);
+    }
 }
 void Theme::drawButtonBackground(juce::Graphics& g, juce::Button& button, const juce::Colour&, bool over, bool down) {
     auto area = button.getLocalBounds().toFloat().reduced(0.5f);
@@ -154,9 +171,13 @@ void Theme::drawButtonText(juce::Graphics& g, juce::TextButton& button, bool, bo
 }
 void Theme::drawComboBox(juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox& box) {
     const bool note = box.getComponentID().endsWith(".note");
+    const bool focus = box.hasKeyboardFocus(false);
     auto area = juce::Rectangle<float>(0.5f, 0.5f, w - 1.0f, h - 1.0f);
     g.setColour(note ? juce::Colours::transparentBlack : field); g.fillRoundedRectangle(area, 4);
-    if (!note) { g.setColour(muted.withAlpha(box.isEnabled() ? 0.2f : 0.08f)); g.drawRoundedRectangle(area, 4, 1); }
+    if (!note || focus) {
+        g.setColour(focus ? ink : muted.withAlpha(box.isEnabled() ? 0.2f : 0.08f));
+        g.drawRoundedRectangle(area, 4, focus ? 2.0f : 1.0f);
+    }
     juce::Path arrow; const float xx = w - 15.0f, yy = h / 2.0f;
     arrow.startNewSubPath(xx - 3, yy - 2); arrow.lineTo(xx, yy + 1); arrow.lineTo(xx + 3, yy - 2);
     g.setColour(muted.withAlpha(box.isEnabled() ? 1.0f : 0.2f)); g.strokePath(arrow, juce::PathStrokeType(1.2f));
