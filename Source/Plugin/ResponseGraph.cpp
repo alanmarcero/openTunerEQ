@@ -126,13 +126,14 @@ void ResponseGraph::paint(juce::Graphics& g) {
     }
     ui::text(g, caption, {124, 8, analyzerToggle.getX() - 132.0f, 20}, 12, ui::ink.withAlpha(0.75f));
     if (analyzerOn) paintSpectrum(g);
+    const auto axisLabel = ui::ink.withAlpha(0.72f);
     for (int db = -24; db <= 24; db += 6) {
         const auto y = yFor(db); g.setColour(ui::muted.withAlpha(db == 0 ? 0.28f : 0.09f)); g.drawHorizontalLine(static_cast<int>(y), p.getX(), p.getRight());
-        if (db % 12 == 0) ui::text(g, (db > 0 ? "+" : "") + juce::String(db), {8, y - 7, 32, 14}, 10, ui::muted, juce::Justification::centredRight);
+        if (db % 12 == 0) ui::text(g, (db > 0 ? "+" : "") + juce::String(db), {8, y - 8, 34, 16}, 11.5f, axisLabel, juce::Justification::centredRight);
     }
     for (double hz : {20., 50., 100., 200., 500., 1000., 2000., 5000., 10000., 20000.}) {
         const auto x = xFor(hz); g.setColour(ui::muted.withAlpha(0.1f)); g.drawVerticalLine(static_cast<int>(x), p.getY(), p.getBottom());
-        ui::text(g, hz >= 1000 ? juce::String(hz / 1000, 0) + "k" : juce::String(hz, 0), {x - 20, p.getBottom() + 8, 40, 16}, 10, ui::muted, juce::Justification::centred);
+        ui::text(g, hz >= 1000 ? juce::String(hz / 1000, 0) + "k" : juce::String(hz, 0), {x - 22, p.getBottom() + 7, 44, 16}, 11.5f, axisLabel, juce::Justification::centred);
     }
     if (hoverX >= p.getX() && hoverX <= p.getRight()) {
         g.setColour(ui::ink.withAlpha(0.35f)); g.drawVerticalLine(static_cast<int>(hoverX), p.getY(), p.getBottom());
@@ -245,11 +246,11 @@ void ResponseGraph::paintSpectrum(juce::Graphics& g) {
     auto y = [&](float db) { return p.getBottom() - juce::jlimit(0.0f, 1.0f, (db + 90) / 90) * p.getHeight(); };
     if (style == 2) {
         g.setOpacity(0.6f); g.drawImage(history, p); g.setOpacity(1.0f);
-        ui::text(g, "now", {p.getRight() + 4, p.getY() - 5, 40, 14}, 9, ui::muted);
-        ui::text(g, "~5s", {p.getRight() + 4, p.getBottom() - 10, 40, 14}, 9, ui::muted);
+        ui::text(g, "now", {p.getRight() + 4, p.getY() - 6, 40, 15}, 10.5f, ui::ink.withAlpha(0.72f));
+        ui::text(g, "~5s", {p.getRight() + 4, p.getBottom() - 10, 40, 15}, 10.5f, ui::ink.withAlpha(0.72f));
         return;
     }
-    for (int db : {0, -45, -90}) ui::text(g, juce::String(db), {p.getRight() + 5, y(static_cast<float>(db)) - 7, 36, 14}, 9, colour.withAlpha(0.7f));
+    for (int db : {0, -45, -90}) ui::text(g, juce::String(db), {p.getRight() + 6, y(static_cast<float>(db)) - 8, 36, 16}, 11.0f, colour.brighter(0.35f).withAlpha(0.95f));
     juce::Graphics::ScopedSaveState save(g); g.reduceClipRegion(p.toNearestInt());
     const int columns = style == 1 ? 120 : 512;
     juce::Path line;
@@ -418,9 +419,9 @@ void PianoStrip::paint(juce::Graphics& g) {
         g.fillRoundedRectangle(rect, 3);
         g.setColour(juce::Colours::black.withAlpha(0.5f)); g.drawRoundedRectangle(rect, 3, 1);
         const auto labelColour = midi == current ? ui::background
-            : black ? (valid ? ui::ink.withAlpha(0.85f) : ui::muted)
+            : black ? (valid ? ui::ink : ui::muted.brighter(0.15f))
                     : ui::background;
-        ui::text(g, juce::String(ote::noteName(midi, processor.usesFlats())), rect.withTrimmedTop(rect.getHeight() - 21), black ? 9.5f : 11.5f,
+        ui::text(g, juce::String(ote::noteName(midi, processor.usesFlats())), rect.withTrimmedTop(rect.getHeight() - 21), black ? 10.5f : 11.5f,
                  labelColour, juce::Justification::centred, midi == current);
     }
     const auto settings = processor.readSettings();

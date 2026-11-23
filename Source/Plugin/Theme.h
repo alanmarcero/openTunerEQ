@@ -6,7 +6,7 @@ inline const std::array<juce::Colour, 5> bandColours {
     juce::Colour(0xffffbe3b), juce::Colour(0xff48f0c8), juce::Colour(0xff78c6c1), juce::Colour(0xff84b9db), juce::Colour(0xffb9a3d5)};
 juce::Font font(float size, bool bold = false);
 void text(juce::Graphics&, const juce::String&, juce::Rectangle<float>, float size, juce::Colour = ink, juce::Justification = juce::Justification::centredLeft, bool bold = false);
-inline constexpr float inactiveAlpha = 0.4f;
+inline constexpr float inactiveAlpha = 0.54f;
 // An empty hint means active. Otherwise the control dims and the tooltip adds the hint.
 void showActive(juce::Component& control, const juce::String& tooltip, const juce::String& hint);
 // A dBFS meter with a 1 s peak hold. A click clears the clip light.

@@ -46,7 +46,7 @@ BandPanel::BandPanel(TunerProcessor& p, int band)
     dynamic.setName("Dynamic"); dynamic.setComponentID(id("dyn"));
     drive.setName("Drive"); drive.setComponentID(id("drive"));
     hz.setFont(ui::font(17, true)); hz.setColour(juce::Label::textColourId, ui::ink); hz.setJustificationType(juce::Justification::centred);
-    cents.setFont(ui::font(11)); cents.setColour(juce::Label::textColourId, ui::muted); cents.setJustificationType(juce::Justification::centred);
+    cents.setFont(ui::font(12)); cents.setColour(juce::Label::textColourId, ui::ink.withAlpha(0.75f)); cents.setJustificationType(juce::Justification::centred);
     for (juce::Component* c : std::initializer_list<juce::Component*>{&enabled, &placement, &note, &octave, &down, &up, &frequency, &gain, &q, &shape, &slope, &dynamic, &drive, &hz, &cents, &level}) addAndMakeVisible(c);
     level.setTooltip("Level at this band's note, which drives the dynamic EQ. The white line marks the dynamic threshold. Click to clear the clip light.");
     enabledAttachment = std::make_unique<params::State::ButtonAttachment>(p.state, id("enabled"), enabled);
@@ -147,12 +147,12 @@ void BandPanel::paint(juce::Graphics& g) {
     g.setColour(selected ? colour.withAlpha(0.8f) : ui::muted.withAlpha(0.18f)); g.drawRoundedRectangle(area, 9, selected ? 1.5f : 1.0f);
     g.setColour(colour.withAlpha(bandEnabled ? 1.0f : 0.25f)); g.fillRoundedRectangle(15, 23, 6, 6, 3);
     ui::text(g, "Band " + juce::String(index + 1), {28, 15, 95, 22}, 13, ui::ink, juce::Justification::centredLeft, true);
-    const auto caption = ui::muted.withMultipliedAlpha(bandEnabled ? 1.0f : ui::inactiveAlpha);
-    ui::text(g, "Place", {16, 36, 70, 13}, 12, caption);
-    ui::text(g, "Note", {16, 92, 100, 14}, 12, caption);
-    ui::text(g, "Octave", {153, 92, 50, 14}, 12, caption);
-    ui::text(g, "Gain", {15, 213, 83, 15}, 12, caption, juce::Justification::centred);
-    ui::text(g, "Q / width", {115, 213, 83, 15}, 12, caption, juce::Justification::centred);
+    const auto caption = ui::ink.withAlpha(0.78f).withMultipliedAlpha(bandEnabled ? 1.0f : ui::inactiveAlpha);
+    ui::text(g, "Place", {16, 35, 70, 14}, 13, caption);
+    ui::text(g, "Note", {16, 91, 100, 15}, 13, caption);
+    ui::text(g, "Octave", {153, 91, 50, 15}, 13, caption);
+    ui::text(g, "Gain", {15, 212, 83, 15}, 13, caption, juce::Justification::centred);
+    ui::text(g, "Q / width", {115, 212, 83, 15}, 13, caption, juce::Justification::centred);
 }
 void BandPanel::resized() {
     const auto w = getWidth();

@@ -59,10 +59,10 @@ void Faceplate::paint(juce::Graphics& g) {
     ui::text(g, "VICANEK MATCHED ANALOG FILTER ENGINE", {86, 36, 256, 17}, 12, ui::copper);
     ui::text(g, "Scale", {723, 22, 36, 24}, 12, ui::ink.withAlpha(0.75f));
     ui::text(g, "Out", {898, 22, 28, 24}, 12, ui::ink.withAlpha(0.75f), juce::Justification::centredRight);
-    ui::text(g, "Dynamic threshold", {948, 68, 188, 16}, 12, ui::ink.withAlpha(0.75f));
-    ui::text(g, "Alan Marcero", {25, 873, 220, 17}, 12, ui::ink.withAlpha(0.68f));
+    ui::text(g, "Dynamic threshold", {932, 68, 204, 16}, 12, ui::ink.withAlpha(0.75f));
+    ui::text(g, "Alan Marcero", {25, 873, 220, 17}, 12.5f, ui::ink.withAlpha(0.78f));
     ui::text(g, "A4", {25, 846, 20, 24}, 12, ui::ink.withAlpha(0.75f), juce::Justification::centredLeft, true);
-    ui::text(g, "12-tone equal temperament / v" JucePlugin_VersionString, {660, 873, 476, 17}, 12, ui::ink.withAlpha(0.68f), juce::Justification::centredRight);
+    ui::text(g, "12-tone equal temperament / v" JucePlugin_VersionString, {660, 873, 476, 17}, 12.5f, ui::ink.withAlpha(0.78f), juce::Justification::centredRight);
 }
 TuningFork::TuningFork(TunerProcessor& p) : processor(p), drawable(juce::Drawable::createFromImageData(BinaryData::tuningfork_svg, BinaryData::tuningfork_svgSize)) {
     setInterceptsMouseClicks(false, false);
@@ -94,7 +94,7 @@ TunerEditor::TunerEditor(TunerProcessor& p)
     phaseComp.setComponentID("phaseComp");
     qMode.setComponentID("qMode"); qMode.addItemList(params::qModes, 1);
     dynThreshold.setComponentID("dynThreshold");
-    dynThreshold.setSliderStyle(juce::Slider::LinearHorizontal); dynThreshold.setTextBoxStyle(juce::Slider::TextBoxRight, false, 62, 24);
+    dynThreshold.setSliderStyle(juce::Slider::LinearHorizontal); dynThreshold.setTextBoxStyle(juce::Slider::TextBoxRight, false, 54, 24);
     dynThreshold.setDoubleClickReturnValue(true, -24);
     scale.setComponentID("scale");
     scale.setSliderStyle(juce::Slider::LinearHorizontal); scale.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 24);
@@ -118,7 +118,7 @@ TunerEditor::TunerEditor(TunerProcessor& p)
     referenceAttachment = std::make_unique<params::State::SliderAttachment>(p.state, "a4", reference);
     for (juce::Component* c : std::initializer_list<juce::Component*>{&graph, &piano, &suite, &qMode, &dynThreshold, &scale, &output, &reference, &selectedLabel, &rangeLabel, &octaveDown, &octaveUp}) content.addAndMakeVisible(c);
     selectedLabel.setComponentID("selectedBand"); selectedLabel.setFont(ui::font(16, true)); selectedLabel.setColour(juce::Label::textColourId, ui::ink);
-    rangeLabel.setFont(ui::font(12)); rangeLabel.setColour(juce::Label::textColourId, ui::muted);
+    rangeLabel.setFont(ui::font(13.5f)); rangeLabel.setColour(juce::Label::textColourId, ui::ink.withAlpha(0.82f));
     for (int i = 0; i < 5; ++i) {
         panels[static_cast<size_t>(i)] = std::make_unique<BandPanel>(p, i);
         panels[static_cast<size_t>(i)]->onSelect = [this](int band) { select(band); };
@@ -187,7 +187,7 @@ void TunerEditor::timerCallback() {
     graph.refresh();
     if ((changed & pianoRefresh) != 0) piano.repaint();
     const auto hz = processor.bandFrequency(selected); const auto midi = ote::nearestNote(hz, processor.referencePitch());
-    selectedLabel.setText("Band " + juce::String(selected + 1) + "  /  " + juce::String(ote::noteName(midi, processor.usesFlats())), juce::dontSendNotification);
+    selectedLabel.setText("Band " + juce::String(selected + 1) + " / " + juce::String(ote::noteName(midi, processor.usesFlats())), juce::dontSendNotification);
     selectedLabel.setColour(juce::Label::textColourId, ui::bandColours[static_cast<size_t>(selected)]);
     rangeLabel.setText(params::frequencyText(hz), juce::dontSendNotification);
     octaveDown.setEnabled(ote::noteFrequency(midi - 12, processor.referencePitch()) >= 20);
@@ -221,11 +221,11 @@ void TunerEditor::resized() {
     output.setBounds(930, 18, 136, 36);
     bypass.setBounds(1072, 16, 66, 40);
     suite.setBounds(24, 70, 664, 40);
-    phaseComp.setBounds(696, 70, 96, 40); qMode.setBounds(800, 70, 140, 40);
-    dynThreshold.setBounds(948, 84, 188, 26);
+    phaseComp.setBounds(696, 70, 94, 40); qMode.setBounds(798, 70, 126, 40);
+    dynThreshold.setBounds(932, 84, 204, 26);
     graph.setBounds(24, 118, 1112, 228);
     for (int i = 0; i < 5; ++i) panels[static_cast<size_t>(i)]->setBounds(24 + i * 224, 354, 216, 400);
-    selectedLabel.setBounds(25, 760, 205, 20); rangeLabel.setBounds(25, 780, 205, 16);
+    selectedLabel.setBounds(25, 760, 205, 20); rangeLabel.setBounds(25, 780, 205, 18);
     octaveDown.setBounds(25, 800, 90, 40); octaveUp.setBounds(123, 800, 90, 40);
     reference.setBounds(45, 846, 189, 24);
     piano.setBounds(240, 760, 896, 110);

@@ -88,7 +88,7 @@ juce::Label* Theme::createSliderTextBox(juce::Slider& slider) {
     label->setColour(juce::Label::textColourId, ink);
     label->setFont(font(13));
     // The value sits below the bar's caption.
-    if (slider.getSliderStyle() == juce::Slider::LinearBar) label->setBorderSize({14, 2, 2, 2});
+    if (slider.getSliderStyle() == juce::Slider::LinearBar) label->setBorderSize({17, 2, 3, 2});
     return label;
 }
 void Theme::drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float position, float start, float end, juce::Slider& slider) {
@@ -147,7 +147,7 @@ void Theme::drawLinearSlider(juce::Graphics& g, int x, int y, int w, int h, floa
         const bool focus = slider.hasKeyboardFocus(false);
         g.setColour(focus ? ink : muted.withAlpha(slider.isEnabled() ? 0.38f : 0.16f));
         g.strokePath(outline, juce::PathStrokeType(focus ? 2.0f : 1.0f));
-        text(g, slider.getName(), area.withHeight(16).withTrimmedLeft(6), 10.5f, muted.brighter(0.15f));
+        text(g, slider.getName(), area.withHeight(16).withTrimmedTop(2).withTrimmedLeft(7), 10.8f, ink.withAlpha(0.78f));
         return;
     }
     const auto cy = static_cast<float>(y) + static_cast<float>(h) / 2;
@@ -174,7 +174,7 @@ void Theme::drawButtonBackground(juce::Graphics& g, juce::Button& button, const 
 void Theme::drawButtonText(juce::Graphics& g, juce::TextButton& button, bool, bool) {
     const auto colour = button.getToggleState() ? background : ink;
     text(g, button.getButtonText(), button.getLocalBounds().toFloat(), 14,
-         button.isEnabled() ? colour : muted, juce::Justification::centred, true);
+         button.isEnabled() ? colour : ink.withAlpha(0.65f), juce::Justification::centred, true);
 }
 void Theme::drawComboBox(juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox& box) {
     const bool note = box.getComponentID().endsWith(".note");
