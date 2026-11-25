@@ -41,4 +41,4 @@ Use [OpenVST Manager](https://github.com/alanmarcero/alan-m-OpenVSTManager/relea
 
 ## License
 
-MIT. See [LICENSE](LICENSE) for terms.
+AGPL-3.0. See [LICENSE](LICENSE) for terms.
