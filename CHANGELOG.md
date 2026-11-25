@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.9.4
+
+- Polishes the editor controls and layout.
+- Aligns the JUCE 8 license and hardens CI.
+
 ## v1.9.3
 
 - **Parameter Locking:** Fix parameter lock test compilation on Windows and release v1.9.3.
