@@ -38,10 +38,11 @@ TunerProcessor::TunerProcessor(juce::File presetFolder)
     abCompare.prime();
 }
 void TunerProcessor::prepareToPlay(double rate, int) {
+    const double clampedRate = std::clamp(std::isfinite(rate) ? rate : 48000.0, 8000.0, 384000.0);
     artworkClock.reset();
-    uiSampleRate.store(rate);
-    spectrum.prepare(rate);
-    engine.prepare(rate);
+    uiSampleRate.store(clampedRate);
+    spectrum.prepare(clampedRate);
+    engine.prepare(clampedRate);
     engine.setSettings(readSettings(), true);
 }
 bool TunerProcessor::isBusesLayoutSupported(const BusesLayout& layout) const {

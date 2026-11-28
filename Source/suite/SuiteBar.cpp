@@ -63,7 +63,7 @@ public:
         addAndMakeVisible(status);
         reload();
     }
-    ~Browser() override { setLookAndFeel(nullptr); }
+    ~Browser() override { list.setModel(nullptr); setLookAndFeel(nullptr); }
     void resized() override {
         search.setBounds(8, 8, getWidth() - 16, 32);
         const int inputSpace = nameInput.isVisible() ? 36 : 0;

@@ -29,7 +29,8 @@ bool SpectrumCapture::pop(Packet& packet) noexcept {
     return true;
 }
 void SpectrumAnalyzer::configure(const SpectrumCapture::Packet& packet) {
-    sampleRate = packet.rate; stream = packet.stream; view = packet.view;
+    sampleRate = std::clamp(std::isfinite(packet.rate) ? packet.rate : 48000.0, 8000.0, 384000.0);
+    stream = packet.stream; view = packet.view;
     const auto order = juce::jlimit(10, 15, static_cast<int>(std::ceil(std::log2(sampleRate * 0.12))));
     const auto size = 1 << order;
     if (!fft || fft->getSize() != size) {
@@ -96,10 +97,12 @@ bool SpectrumAnalyzer::update(double now, bool useAfterEQ) {
     return true;
 }
 float SpectrumAnalyzer::levelAt(double hz, float tiltDbPerOctave) const {
-    if (!fft || collected < fft->getSize() || hz < 20 || hz >= sampleRate * 0.5) return floorDb;
+    if (!fft || collected < fft->getSize() || hz < 20 || hz >= sampleRate * 0.5 || levels.size() < 2) return floorDb;
     const auto bin = hz * fft->getSize() / sampleRate;
-    const auto index = static_cast<size_t>(bin);
-    const auto fraction = static_cast<float>(bin - index);
+    if (!std::isfinite(bin) || bin < 0.0) return floorDb;
+    const auto maxIndex = levels.size() - 2;
+    const auto index = std::min(static_cast<size_t>(bin), maxIndex);
+    const auto fraction = std::clamp(static_cast<float>(bin - static_cast<double>(index)), 0.0f, 1.0f);
     const auto level = levels[index] + fraction * (levels[index + 1] - levels[index]);
     if (level <= floorDb || !std::isfinite(tiltDbPerOctave)) return level;
     return level + std::clamp(tiltDbPerOctave, -12.0f, 12.0f) * static_cast<float>(std::log2(hz / 1000.0));

@@ -158,7 +158,7 @@ double Equalizer::Bank::align(double sample, int channel) noexcept {
     return sample;
 }
 void Equalizer::prepare(double sampleRate) noexcept {
-    rate = std::max(100.0, sampleRate);
+    rate = std::clamp(std::isfinite(sampleRate) ? sampleRate : 48000.0, 8000.0, 384000.0);
     smooth = std::exp(-16.0 / (0.02 * rate));
     gainSmoothing = 1.0 - std::exp(-1.0 / (0.01 * rate));
     fadeSamples = std::max(1, static_cast<int>(0.01 * rate));

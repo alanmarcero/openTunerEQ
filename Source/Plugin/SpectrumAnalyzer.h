@@ -12,7 +12,10 @@ public:
         bool afterEQ = false;
     };
     SpectrumCapture() : packets(std::make_unique<Packet[]>(capacity)) {}
-    void prepare(double rate) noexcept { sampleRate = rate; capturing = false; }
+    void prepare(double rate) noexcept {
+        sampleRate = std::clamp(std::isfinite(rate) ? rate : 48000.0, 8000.0, 384000.0);
+        capturing = false;
+    }
     void setActive(bool value) noexcept {
         if (active.exchange(value) != value) view.fetch_add(1);
     }

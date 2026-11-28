@@ -559,6 +559,8 @@ int main() {
         check(!isOneSidedCut(cut), "a Stereo high-pass is not one-sided");
         soloed.soloBand = -1;
         check(audibleBand(soloed, 2).shape == Shape::Bell && audibleBand(soloed, 0).enabled, "without solo every band plays as set");
+        check(std::isfinite(noteFrequency(69, 0.0)) && noteFrequency(69, 0.0) > 0.0, "non-positive A4 reference falls back safely");
+        check(std::isfinite(frequencyNote(440.0, -440.0)), "negative A4 reference avoids NaN");
     }
     std::cout << "PASS: " << checks << " checks\n";
 }
