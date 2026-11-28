@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.9.5
+
+- Detaches the preset browser list model on destruction, clamps spectrum interpolation indices, guards non-positive A4 references, and bounds sample rates to `[8000, 384000]` Hz.
+
 ## v1.9.4
 
 - Polishes the editor controls and layout.
